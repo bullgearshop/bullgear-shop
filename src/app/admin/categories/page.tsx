@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Plus, Edit2, Trash2, X, ExternalLink } from 'lucide-react';
 import { Category } from '@/lib/types';
 import { DEFAULT_CATEGORIES } from '@/lib/db';
 import Link from 'next/link';
+import { SingleImageUpload } from '@/components/admin/SingleImageUpload';
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
@@ -15,14 +16,38 @@ export default function AdminCategoriesPage() {
   const [formName, setFormName] = useState('');
   const [formSlug, setFormSlug] = useState('');
   const [formDescription, setFormDescription] = useState('');
-  const [formImage, setFormImage] = useState('/images/product-snorkel.jpg');
+  const [formImage, setFormImage] = useState('');
+
+  // Load from localStorage if present
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('bullgear_admin_categories');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCategories(parsed);
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  const saveToStorage = (updated: Category[]) => {
+    setCategories(updated);
+    try {
+      localStorage.setItem('bullgear_admin_categories', JSON.stringify(updated));
+    } catch {
+      // Ignore
+    }
+  };
 
   const handleOpenAdd = () => {
     setEditingCategory(null);
     setFormName('');
     setFormSlug('');
     setFormDescription('');
-    setFormImage('/images/product-snorkel.jpg');
+    setFormImage('');
     setModalOpen(true);
   };
 
@@ -38,19 +63,18 @@ export default function AdminCategoriesPage() {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingCategory) {
-      setCategories((prev) =>
-        prev.map((c) =>
-          c.id === editingCategory.id
-            ? {
-                ...c,
-                name: formName,
-                slug: formSlug || formName.toLowerCase().replace(/\s+/g, '-'),
-                description: formDescription,
-                image_url: formImage,
-              }
-            : c
-        )
+      const updated = categories.map((c) =>
+        c.id === editingCategory.id
+          ? {
+              ...c,
+              name: formName,
+              slug: formSlug || formName.toLowerCase().replace(/\s+/g, '-'),
+              description: formDescription,
+              image_url: formImage,
+            }
+          : c
       );
+      saveToStorage(updated);
     } else {
       const newCat: Category = {
         id: `cat-${Date.now()}`,
@@ -63,14 +87,14 @@ export default function AdminCategoriesPage() {
         is_active: true,
         product_count: 0,
       };
-      setCategories([...categories, newCat]);
+      saveToStorage([...categories, newCat]);
     }
     setModalOpen(false);
   };
 
   const handleDelete = (id: string) => {
     if (confirm('Are you sure you want to remove this category?')) {
-      setCategories(categories.filter((c) => c.id !== id));
+      saveToStorage(categories.filter((c) => c.id !== id));
     }
   };
 
@@ -191,16 +215,13 @@ export default function AdminCategoriesPage() {
                 />
               </div>
 
-              <div>
-                <label className="block font-bold text-gray-700 uppercase mb-1">Image URL</label>
-                <input
-                  type="text"
-                  value={formImage}
-                  onChange={(e) => setFormImage(e.target.value)}
-                  placeholder="/images/product-roof-rack.jpg"
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:border-[#e51b24]"
-                />
-              </div>
+              <SingleImageUpload
+                label="Category Image *"
+                value={formImage}
+                onChange={setFormImage}
+                helperText="Upload photo for category card on homepage & shop"
+                aspectRatioHint="16:11 or Square"
+              />
 
               <div>
                 <label className="block font-bold text-gray-700 uppercase mb-1">Description</label>

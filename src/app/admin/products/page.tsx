@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -10,10 +10,16 @@ import {
   Trash2,
   X,
   ExternalLink,
+  Star,
+  Check,
+  AlertCircle,
 } from 'lucide-react';
-import { Product, Category } from '@/lib/types';
+import { Product, Category, StockStatus, ProductImage } from '@/lib/types';
 import { DEFAULT_PRODUCTS, DEFAULT_CATEGORIES } from '@/lib/db';
 import { formatRupees } from '@/lib/whatsapp';
+import { ProductImagesUpload } from '@/components/admin/ProductImagesUpload';
+
+const MAX_BEST_SELLERS = 6;
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
@@ -30,9 +36,52 @@ export default function AdminProductsPage() {
   const [formPrice, setFormPrice] = useState('');
   const [formCategory, setFormCategory] = useState('');
   const [formStock, setFormStock] = useState('10');
-  const [formImage, setFormImage] = useState('/images/product-snorkel.jpg');
+  const [formImages, setFormImages] = useState<ProductImage[]>([]);
   const [formDescription, setFormDescription] = useState('');
   const [formCompatibility, setFormCompatibility] = useState('Mahindra Thar (2020+), Toyota Fortuner, Hilux, Jimny');
+  const [formIsBestSeller, setFormIsBestSeller] = useState(false);
+  const [formIsFeatured, setFormIsFeatured] = useState(false);
+
+  // Load from localStorage if present
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('bullgear_admin_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setProducts(parsed);
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  const saveToStorage = (updated: Product[]) => {
+    setProducts(updated);
+    try {
+      localStorage.setItem('bullgear_admin_products', JSON.stringify(updated));
+    } catch {
+      // Ignore
+    }
+  };
+
+  const bestSellersCount = products.filter((p) => p.is_best_seller).length;
+
+  const toggleBestSeller = (productId: string) => {
+    const targetProduct = products.find((p) => p.id === productId);
+    if (!targetProduct) return;
+
+    if (!targetProduct.is_best_seller && bestSellersCount >= MAX_BEST_SELLERS) {
+      alert(`Maximum ${MAX_BEST_SELLERS} products can be featured in "Shop Our Best Sellers". Please untick another product first.`);
+      return;
+    }
+
+    const updated = products.map((p) =>
+      p.id === productId ? { ...p, is_best_seller: !p.is_best_seller } : p
+    );
+    saveToStorage(updated);
+  };
 
   const filteredProducts = products.filter((p) => {
     const matchSearch =
@@ -50,9 +99,11 @@ export default function AdminProductsPage() {
     setFormPrice('14999');
     setFormCategory(categories[0]?.id || '');
     setFormStock('15');
-    setFormImage('/images/product-snorkel.jpg');
+    setFormImages([]);
     setFormDescription('Heavy-duty 4x4 accessory manufactured with aerospace-grade materials.');
     setFormCompatibility('Mahindra Thar, Toyota Fortuner, Hilux, Jimny, Gurkha');
+    setFormIsBestSeller(bestSellersCount < MAX_BEST_SELLERS);
+    setFormIsFeatured(false);
     setModalOpen(true);
   };
 
@@ -64,9 +115,24 @@ export default function AdminProductsPage() {
     setFormPrice(String(p.price));
     setFormCategory(p.category_id || '');
     setFormStock(String(p.stock_quantity));
-    setFormImage(p.images?.[0]?.image_url || '/images/product-snorkel.jpg');
+    setFormImages(
+      p.images?.length
+        ? p.images
+        : [
+            {
+              id: `img-${p.id}`,
+              product_id: p.id,
+              image_url: '/images/product-snorkel.jpg',
+              alt_text: p.name,
+              display_order: 1,
+              is_primary: true,
+            },
+          ]
+    );
     setFormDescription(p.description || '');
     setFormCompatibility(p.compatibility_models?.join(', ') || '');
+    setFormIsBestSeller(p.is_best_seller ?? false);
+    setFormIsFeatured(p.is_featured ?? false);
     setModalOpen(true);
   };
 
@@ -74,40 +140,47 @@ export default function AdminProductsPage() {
     e.preventDefault();
     const catObj = categories.find((c) => c.id === formCategory);
     const parsedStock = parseInt(formStock, 10) || 0;
-    const stockStatus = parsedStock === 0 ? 'out_of_stock' : parsedStock <= 5 ? 'limited_stock' : 'in_stock';
+    const stockStatus: StockStatus = parsedStock === 0 ? 'out_of_stock' : parsedStock <= 5 ? 'limited_stock' : 'in_stock';
     const models = formCompatibility.split(',').map((s) => s.trim()).filter(Boolean);
 
+    // Guard best sellers count
+    if (formIsBestSeller && (!editingProduct || !editingProduct.is_best_seller) && bestSellersCount >= MAX_BEST_SELLERS) {
+      alert(`Maximum ${MAX_BEST_SELLERS} products can be featured in Best Sellers.`);
+      return;
+    }
+
     if (editingProduct) {
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.id === editingProduct.id
-            ? {
-                ...p,
-                name: formName,
-                slug: formSlug || formName.toLowerCase().replace(/\s+/g, '-'),
-                sku: formSku,
-                price: parseFloat(formPrice) || 0,
-                category_id: formCategory,
-                category_name: catObj?.name,
-                category_slug: catObj?.slug,
-                stock_quantity: parsedStock,
-                stock_status: stockStatus,
-                description: formDescription,
-                compatibility_models: models,
-                images: [
-                  {
-                    id: 'img-1',
-                    product_id: p.id,
-                    image_url: formImage,
-                    alt_text: formName,
-                    display_order: 1,
-                    is_primary: true,
-                  },
-                ],
-              }
-            : p
-        )
+      const updated = products.map((p) =>
+        p.id === editingProduct.id
+          ? {
+              ...p,
+              name: formName,
+              slug: formSlug || formName.toLowerCase().replace(/\s+/g, '-'),
+              sku: formSku,
+              price: parseFloat(formPrice) || 0,
+              category_id: formCategory,
+              category_name: catObj?.name,
+              category_slug: catObj?.slug,
+              stock_quantity: parsedStock,
+              stock_status: stockStatus,
+              is_best_seller: formIsBestSeller,
+              is_featured: formIsFeatured,
+              description: formDescription,
+              compatibility_models: models,
+              images: formImages.length > 0 ? formImages : [
+                {
+                  id: `img-${p.id}-1`,
+                  product_id: p.id,
+                  image_url: '/images/product-snorkel.jpg',
+                  alt_text: formName,
+                  display_order: 1,
+                  is_primary: true,
+                },
+              ],
+            }
+          : p
       );
+      saveToStorage(updated);
     } else {
       const newProd: Product = {
         id: `prod-${Date.now()}`,
@@ -121,32 +194,33 @@ export default function AdminProductsPage() {
         stock_quantity: parsedStock,
         low_stock_threshold: 5,
         stock_status: stockStatus,
-        is_featured: false,
-        is_best_seller: false,
+        is_featured: formIsFeatured,
+        is_best_seller: formIsBestSeller,
         is_published: true,
         description: formDescription,
         compatibility_models: models,
         specifications: { 'Material': 'Heavy-duty steel/composite' },
         features: ['Engineered for extreme off-road durability'],
-        images: [
+        images: formImages.length > 0 ? formImages : [
           {
-            id: `img-${Date.now()}`,
+            id: `img-${Date.now()}-1`,
             product_id: `prod-${Date.now()}`,
-            image_url: formImage,
+            image_url: '/images/product-snorkel.jpg',
             alt_text: formName,
             display_order: 1,
             is_primary: true,
           },
         ],
       };
-      setProducts([newProd, ...products]);
+      saveToStorage([newProd, ...products]);
     }
     setModalOpen(false);
   };
 
   const handleDeleteProduct = (id: string) => {
     if (confirm('Are you sure you want to remove this product from the armory?')) {
-      setProducts(products.filter((p) => p.id !== id));
+      const updated = products.filter((p) => p.id !== id);
+      saveToStorage(updated);
     }
   };
 
@@ -155,11 +229,23 @@ export default function AdminProductsPage() {
       {/* Title & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-gray-900">
-            Product Armory Management
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-gray-900">
+              Product Armory Management
+            </h1>
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                bestSellersCount === MAX_BEST_SELLERS
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  : 'bg-amber-100 text-amber-800 border border-amber-300'
+              }`}
+            >
+              <Star className="w-3.5 h-3.5 fill-current" />
+              <span>Best Sellers: {bestSellersCount} / {MAX_BEST_SELLERS} Selected</span>
+            </span>
+          </div>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            Create, update stock quantity, pricing, and fitment specifications.
+            Manage product catalog, inventory, pricing, and tick up to 6 products to display in the &quot;Shop Our Best Sellers&quot; section.
           </p>
         </div>
 
@@ -171,6 +257,19 @@ export default function AdminProductsPage() {
           <Plus className="w-4 h-4" />
           <span>Add New Product</span>
         </button>
+      </div>
+
+      {/* Info Notice about Best Sellers limit of 6 */}
+      <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between gap-3 text-xs text-gray-600">
+        <div className="flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-[#e51b24] shrink-0" />
+          <span>
+            <strong className="text-gray-900 font-bold">Homepage Best Sellers Rule:</strong> Exactly <strong>6 products</strong> appear in the &quot;Shop Our Best Sellers&quot; homepage carousel. Tick the checkbox on any product below to feature it.
+          </span>
+        </div>
+        <span className="font-mono font-bold text-gray-900 shrink-0">
+          {bestSellersCount} of {MAX_BEST_SELLERS} slots filled
+        </span>
       </div>
 
       {/* Filter and Search Bar */}
@@ -210,93 +309,130 @@ export default function AdminProductsPage() {
                 <th className="py-3.5 px-4">Category</th>
                 <th className="py-3.5 px-4">SKU</th>
                 <th className="py-3.5 px-4">Price</th>
+                <th className="py-3.5 px-4 text-center">Best Seller (Max 6)</th>
                 <th className="py-3.5 px-4">Inventory</th>
                 <th className="py-3.5 px-4">Status</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredProducts.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-3">
-                      <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-50 border border-gray-200 shrink-0">
-                        <Image
-                          src={p.images?.[0]?.image_url || '/images/product-snorkel.jpg'}
-                          alt={p.name}
-                          fill
-                          className="object-contain p-1"
-                        />
+              {filteredProducts.map((p) => {
+                const isBestSeller = !!p.is_best_seller;
+                return (
+                  <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-50 border border-gray-200 shrink-0">
+                          <Image
+                            src={p.images?.[0]?.image_url || '/images/product-snorkel.jpg'}
+                            alt={p.name}
+                            fill
+                            className="object-contain p-1"
+                          />
+                        </div>
+                        <div>
+                          <span className="font-bold text-gray-900 line-clamp-1">{p.name}</span>
+                          <span className="text-[11px] text-gray-500">/{p.slug}</span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="font-bold text-gray-900 line-clamp-1">{p.name}</span>
-                        <span className="text-[11px] text-gray-500">/{p.slug}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4 text-gray-600">
-                    {p.category_name || 'Accessories'}
-                  </td>
-                  <td className="py-3.5 px-4 font-mono text-gray-500">
-                    {p.sku || 'N/A'}
-                  </td>
-                  <td className="py-3.5 px-4 font-bold text-gray-900">
-                    {formatRupees(p.price)}
-                  </td>
-                  <td className="py-3.5 px-4 font-bold">
-                    <span className={p.stock_quantity <= 5 ? 'text-amber-600' : 'text-emerald-600'}>
-                      {p.stock_quantity} units
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        p.stock_status === 'in_stock'
-                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                          : p.stock_status === 'limited_stock'
-                          ? 'bg-amber-50 text-amber-600 border border-amber-200'
-                          : 'bg-red-50 text-red-600 border border-red-200'
-                      }`}
-                    >
-                      {p.stock_status.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <div className="inline-flex items-center gap-2">
-                      <Link
-                        href={`/products/${p.slug}`}
-                        target="_blank"
-                        className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-                        title="View on Storefront"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </Link>
+                    </td>
+                    <td className="py-3.5 px-4 text-gray-600">
+                      {p.category_name || 'Accessories'}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-gray-500">
+                      {p.sku || 'N/A'}
+                    </td>
+                    <td className="py-3.5 px-4 font-bold text-gray-900">
+                      {formatRupees(p.price)}
+                    </td>
+
+                    {/* Best Seller Tick Column */}
+                    <td className="py-3.5 px-4 text-center">
                       <button
                         type="button"
-                        onClick={() => handleOpenEditModal(p)}
-                        className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50"
-                        title="Edit Product"
+                        onClick={() => toggleBestSeller(p.id)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          isBestSeller
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100'
+                            : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                        }`}
+                        title={
+                          isBestSeller
+                            ? 'Click to remove from Best Sellers'
+                            : bestSellersCount >= MAX_BEST_SELLERS
+                            ? `Limit reached (${MAX_BEST_SELLERS}/6)`
+                            : 'Click to feature in Best Sellers'
+                        }
                       >
-                        <Edit2 className="w-4 h-4" />
+                        {isBestSeller ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Ticked (Featured)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5 text-gray-400" />
+                            <span>Tick as Best Seller</span>
+                          </>
+                        )}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteProduct(p.id)}
-                        className="p-1.5 rounded-lg text-red-600 hover:bg-red-50"
-                        title="Delete Product"
+                    </td>
+
+                    <td className="py-3.5 px-4 font-bold">
+                      <span className={p.stock_quantity <= 5 ? 'text-amber-600' : 'text-emerald-600'}>
+                        {p.stock_quantity} units
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          p.stock_status === 'in_stock'
+                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                            : p.stock_status === 'limited_stock'
+                            ? 'bg-amber-50 text-amber-600 border border-amber-200'
+                            : 'bg-red-50 text-red-600 border border-red-200'
+                        }`}
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {p.stock_status.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="inline-flex items-center gap-2">
+                        <Link
+                          href={`/products/${p.slug}`}
+                          target="_blank"
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                          title="View on Storefront"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditModal(p)}
+                          className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50"
+                          title="Edit Product"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProduct(p.id)}
+                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-50"
+                          title="Delete Product"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Add / Edit Modal in White Theme */}
+      {/* Add / Edit Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="fixed inset-0" onClick={() => setModalOpen(false)} />
@@ -386,27 +522,51 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-gray-700 uppercase mb-1">Stock Quantity *</label>
-                  <input
-                    type="number"
-                    required
-                    value={formStock}
-                    onChange={(e) => setFormStock(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:border-[#e51b24]"
-                  />
+              <div>
+                <label className="block font-bold text-gray-700 uppercase mb-1">Stock Quantity *</label>
+                <input
+                  type="number"
+                  required
+                  value={formStock}
+                  onChange={(e) => setFormStock(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:border-[#e51b24]"
+                />
+              </div>
+
+              {/* Multi-Image File Upload (Max 6: 1 Main + 5 Gallery) */}
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                <ProductImagesUpload
+                  images={formImages}
+                  onChange={setFormImages}
+                  productId={editingProduct?.id || 'new-product'}
+                />
+              </div>
+
+              {/* Best Seller & Featured Toggles */}
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="formIsBestSeller"
+                      checked={formIsBestSeller}
+                      disabled={!formIsBestSeller && bestSellersCount >= MAX_BEST_SELLERS}
+                      onChange={(e) => setFormIsBestSeller(e.target.checked)}
+                      className="rounded text-[#e51b24] focus:ring-[#e51b24] cursor-pointer"
+                    />
+                    <label htmlFor="formIsBestSeller" className="font-bold text-gray-900 cursor-pointer">
+                      Feature in &quot;Shop Our Best Sellers&quot; (Homepage Section)
+                    </label>
+                  </div>
+                  <span className="font-mono text-[11px] text-gray-500 font-bold">
+                    {bestSellersCount} / {MAX_BEST_SELLERS} slots filled
+                  </span>
                 </div>
-                <div>
-                  <label className="block font-bold text-gray-700 uppercase mb-1">Image URL / Path</label>
-                  <input
-                    type="text"
-                    value={formImage}
-                    onChange={(e) => setFormImage(e.target.value)}
-                    placeholder="/images/product-snorkel.jpg"
-                    className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:border-[#e51b24]"
-                  />
-                </div>
+                {!formIsBestSeller && bestSellersCount >= MAX_BEST_SELLERS && (
+                  <p className="text-[11px] text-amber-700">
+                    Maximum limit of 6 Best Sellers reached. Untick another product to feature this one.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -436,13 +596,13 @@ export default function AdminProductsPage() {
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 rounded-lg bg-[#e51b24] hover:bg-[#c8141d] text-white font-bold uppercase tracking-wider shadow-md shadow-[#e51b24]/20"
+                  className="px-6 py-2 rounded-lg bg-[#e51b24] hover:bg-[#c8141d] text-white font-bold uppercase tracking-wider shadow-md shadow-[#e51b24]/20 cursor-pointer"
                 >
                   Save Product
                 </button>

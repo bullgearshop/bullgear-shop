@@ -58,48 +58,54 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
               Industrial-grade protection and overlanding systems tested in the harshest conditions.
             </p>
 
-            {/* Category Pills */}
-            <div className="flex items-center gap-2 overflow-x-auto pt-6 pb-2 scrollbar-none">
-              <Link
-                href="/shop"
-                className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap transition border ${
-                  !category
-                    ? 'bg-[#e51b24] text-white border-[#e51b24]'
-                    : 'bg-white text-gray-600 border-gray-200 hover:text-black hover:border-gray-400'
-                }`}
-              >
-                All Gear ({allProducts.length})
-              </Link>
-              {categories.map((cat) => (
+            {/* Category Filter Pills */}
+            <div className="pt-5 pb-1">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
                 <Link
-                  key={cat.id}
-                  href={`/categories/${cat.slug}`}
-                  className={`px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition border ${
-                    category === cat.slug
+                  href="/shop"
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap transition border ${
+                    !category
                       ? 'bg-[#e51b24] text-white border-[#e51b24]'
-                      : 'bg-white text-gray-600 border-gray-200 hover:text-black hover:border-gray-400'
+                      : 'bg-white text-gray-700 border-gray-200 hover:text-black hover:border-gray-400'
                   }`}
                 >
-                  {cat.name}
+                  All Gear ({allProducts.length})
                 </Link>
-              ))}
+                {categories.map((cat) => (
+                  <Link
+                    key={cat.id}
+                    href={`/shop?category=${cat.slug}`}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition border ${
+                      category === cat.slug
+                        ? 'bg-[#e51b24] text-white border-[#e51b24]'
+                        : 'bg-white text-gray-700 border-gray-200 hover:text-black hover:border-gray-400'
+                    }`}
+                  >
+                    {cat.name}
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Product Grid */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
-          <div className="flex items-center justify-between pb-4 border-b border-gray-200 text-xs text-gray-500">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3.5 border-b border-gray-200 text-xs text-gray-600">
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="w-3.5 h-3.5 text-[#e51b24]" />
+              <span>
+                Category: <strong className="text-gray-900">{category ? categories.find((c) => c.slug === category)?.name || category : 'All Categories'}</strong>
+              </span>
+              <span>•</span>
               <span>
                 Showing {filtered.length} {filtered.length === 1 ? 'product' : 'products'}
                 {q ? ` for "${q}"` : ''}
               </span>
             </div>
-            {q && (
+            {(category || q) && (
               <Link href="/shop" className="text-[#e51b24] hover:underline font-semibold">
-                Clear search filter
+                Clear all filters
               </Link>
             )}
           </div>
@@ -118,7 +124,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 pt-6 sm:pt-8">
               {filtered.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}

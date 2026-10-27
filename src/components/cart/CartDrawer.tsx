@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { X, Trash2, ShoppingBag, MessageSquare, ArrowRight, ShieldCheck, Truck } from 'lucide-react';
+import { X, Trash2, ShoppingBag, MessageSquare, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
 import { formatRupees, createWhatsAppChatUrl, generateWhatsAppOrderMessage } from '@/lib/whatsapp';
 
@@ -28,10 +28,6 @@ export function CartDrawer() {
   const [completedOrder, setCompletedOrder] = useState<any>(null);
 
   if (!isCartOpen) return null;
-
-  const freeShippingThreshold = 4999;
-  const freeShippingLeft = Math.max(0, freeShippingThreshold - totalAmount);
-  const shippingPercent = Math.min(100, (totalAmount / freeShippingThreshold) * 100);
 
   const handleWhatsAppCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,29 +112,6 @@ export function CartDrawer() {
           >
             <X className="w-5 h-5" />
           </button>
-        </div>
-
-        {/* Free Shipping Progress */}
-        <div className="p-4 bg-[#12151c] border-b border-[#1f2533] text-xs">
-          <div className="flex items-center gap-2 mb-1.5">
-            <Truck className="w-4 h-4 text-[#e51b24]" />
-            {freeShippingLeft > 0 ? (
-              <span className="text-gray-300">
-                Add <strong className="text-white">{formatRupees(freeShippingLeft)}</strong> more for{' '}
-                <strong className="text-[#e51b24]">Free Express Shipping</strong>
-              </span>
-            ) : (
-              <span className="text-emerald-400 font-bold">
-                🎉 You&apos;ve unlocked Free Express Shipping across India!
-              </span>
-            )}
-          </div>
-          <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[#e51b24] transition-all duration-300 rounded-full"
-              style={{ width: `${shippingPercent}%` }}
-            />
-          </div>
         </div>
 
         {/* Cart Items List */}

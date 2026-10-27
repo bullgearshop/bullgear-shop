@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
-  Heart,
   ShoppingBag,
   MessageSquare,
   ShieldCheck,
@@ -37,7 +36,7 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
   const [quantity, setQuantity] = useState(1);
   const [selectedVehicle, setSelectedVehicle] = useState(product.compatibility_models?.[0] || 'Mahindra Thar (2020+)');
   const [activeTab, setActiveTab] = useState<'description' | 'specifications' | 'compatibility' | 'installation' | 'delivery'>('description');
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [mobileOpenTab, setMobileOpenTab] = useState<string | null>('description');
   const [isWhatsAppOpen, setIsWhatsAppOpen] = useState(false);
   const [addedToast, setAddedToast] = useState(false);
 
@@ -161,29 +160,16 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                 ))}
               </div>
 
-              {/* Big Main Stage Image with Arrows */}
-              <div className={`relative flex-1 rounded-2xl overflow-hidden border flex items-center justify-center p-6 min-h-[350px] sm:min-h-[480px] ${
+              {/* Big Main Stage Image with Arrows (Uncropped on mobile) */}
+              <div className={`relative flex-1 rounded-2xl overflow-hidden border flex items-center justify-center p-3 sm:p-6 min-h-[280px] sm:min-h-[480px] ${
                 isLight ? 'bg-white border-gray-200 shadow-md' : 'bg-[#0f1218] border-[#202636]'
               }`}>
-                {/* Wishlist Heart */}
-                <button
-                  type="button"
-                  onClick={() => setIsWishlisted(!isWishlisted)}
-                  className={`absolute top-4 right-4 z-10 p-2.5 rounded-full border transition ${
-                    isLight
-                      ? 'bg-white border-gray-200 text-gray-500 hover:text-[#e51b24]'
-                      : 'bg-[#1b202c] border-[#2a3245] text-gray-300 hover:text-[#e51b24]'
-                  }`}
-                  aria-label="Wishlist"
-                >
-                  <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-[#e51b24] text-[#e51b24]' : ''}`} />
-                </button>
 
                 {/* Left arrow */}
                 <button
                   type="button"
                   onClick={handlePrevImage}
-                  className={`absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full border shadow-md transition ${
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full border shadow-md transition z-10 ${
                     isLight
                       ? 'bg-white/90 border-gray-200 text-gray-700 hover:bg-white'
                       : 'bg-[#161a24]/90 border-[#2b3345] text-white hover:bg-[#e51b24]'
@@ -193,8 +179,8 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                   <ChevronLeft className="w-5 h-5" />
                 </button>
 
-                {/* Main Product Image */}
-                <div className="relative w-full h-[320px] sm:h-[420px]">
+                {/* Main Product Image - Full uncropped containment */}
+                <div className="relative w-full h-[260px] sm:h-[420px]">
                   <Image
                     src={currentImage.image_url}
                     alt={currentImage.alt_text || product.name}
@@ -208,7 +194,7 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                 <button
                   type="button"
                   onClick={handleNextImage}
-                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full border shadow-md transition ${
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full border shadow-md transition z-10 ${
                     isLight
                       ? 'bg-white/90 border-gray-200 text-gray-700 hover:bg-white'
                       : 'bg-[#161a24]/90 border-[#2b3345] text-white hover:bg-[#e51b24]'
@@ -363,13 +349,13 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                 </div>
               )}
 
-              {/* 3 Trust Badges (matching reference: Free Shipping, Easy Returns, Secure Payment) */}
+              {/* 3 Trust Badges (Free Shipping removed) */}
               <div className={`grid grid-cols-3 gap-2 p-3.5 rounded-xl border text-center ${
                 isLight ? 'bg-gray-50 border-gray-200' : 'bg-[#12151c] border-[#202636]'
               }`}>
                 <div className="flex flex-col items-center">
                   <Truck className="w-5 h-5 text-[#e51b24] mb-1" />
-                  <span className="text-[11px] font-bold">Free Shipping</span>
+                  <span className="text-[11px] font-bold">Express Dispatch</span>
                   <span className="text-[10px] text-gray-500">Across India</span>
                 </div>
                 <div className="flex flex-col items-center border-x border-gray-200 dark:border-gray-800 px-2">
@@ -388,12 +374,12 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
 
           </div>
 
-          {/* Tabbed Product Details Section (Description, Specifications, Compatibility, Installation, Delivery) */}
-          <div className="mt-16 sm:mt-24">
+          {/* Tabbed Product Details Section (Mobile: Vertical Accordion with + button; Desktop: Current Horizontal Tabs) */}
+          <div className="mt-12 sm:mt-24">
             
-            {/* Tabs Header */}
-            <div className={`flex border-b overflow-x-auto gap-8 ${
-              isLight ? 'border-gray-200' : 'border-[#1f2533]'
+            {/* Mobile View: Vertical Accordion with + Button (One by one, no horizontal scroll) */}
+            <div className={`md:hidden divide-y rounded-xl border overflow-hidden ${
+              isLight ? 'divide-gray-200 border-gray-200 bg-white' : 'divide-[#1f2533] border-[#1f2533] bg-[#0c0e14]'
             }`}>
               {[
                 { id: 'description', label: 'Description' },
@@ -401,26 +387,157 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                 { id: 'compatibility', label: 'Compatibility' },
                 { id: 'installation', label: 'Installation' },
                 { id: 'delivery', label: 'Delivery & Returns' },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`pb-4 text-xs sm:text-sm font-bold uppercase tracking-wider transition-colors relative whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? 'text-[#e51b24]'
-                      : isLight
-                      ? 'text-gray-500 hover:text-gray-900'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  {tab.label}
-                  {activeTab === tab.id && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#e51b24]" />
-                  )}
-                </button>
-              ))}
+              ].map((tab) => {
+                const isOpen = mobileOpenTab === tab.id;
+                return (
+                  <div key={tab.id} className="transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => setMobileOpenTab(isOpen ? null : tab.id)}
+                      className={`w-full py-3.5 px-4 flex items-center justify-between text-left transition-colors cursor-pointer ${
+                        isOpen ? (isLight ? 'bg-gray-50' : 'bg-[#12151c]') : ''
+                      }`}
+                    >
+                      <span className={`text-xs font-extrabold uppercase tracking-wider ${
+                        isOpen ? 'text-[#e51b24]' : (isLight ? 'text-gray-900' : 'text-white')
+                      }`}>
+                        {tab.label}
+                      </span>
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-sm transition-transform duration-200 ${
+                        isOpen
+                          ? 'bg-[#e51b24] text-white rotate-45'
+                          : (isLight ? 'bg-gray-100 text-gray-600' : 'bg-[#1b202c] text-gray-300')
+                      }`}>
+                        +
+                      </span>
+                    </button>
+
+                    {isOpen && (
+                      <div className="px-4 pb-5 pt-1">
+                        {tab.id === 'description' && (
+                          <div className={`space-y-3 text-xs leading-relaxed ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
+                            <p>{product.description}</p>
+                            <h4 className={`text-xs font-bold uppercase tracking-wide pt-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                              Key Highlights
+                            </h4>
+                            <ul className="space-y-1.5">
+                              {product.features?.map((f, i) => (
+                                <li key={i} className="flex items-start gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#e51b24] mt-1.5 shrink-0" />
+                                  <span>{f}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {tab.id === 'specifications' && (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs border-collapse">
+                              <tbody>
+                                {Object.entries(product.specifications || {}).map(([key, val], idx) => (
+                                  <tr
+                                    key={key}
+                                    className={`border-b ${
+                                      isLight
+                                        ? idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'
+                                        : idx % 2 === 0 ? 'bg-[#12151c]' : 'bg-transparent'
+                                    } ${isLight ? 'border-gray-200' : 'border-[#1f2533]'}`}
+                                  >
+                                    <td className="py-2.5 px-3 font-bold text-gray-400 w-2/5 uppercase tracking-wider text-[10px]">
+                                      {key}
+                                    </td>
+                                    <td className={`py-2.5 px-3 font-medium ${isLight ? 'text-gray-800' : 'text-white'}`}>
+                                      {val}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {tab.id === 'compatibility' && (
+                          <div className="space-y-3">
+                            <p className={`text-xs ${isLight ? 'text-gray-600' : 'text-gray-300'}`}>
+                              Test-fitted for the following chassis:
+                            </p>
+                            <div className="grid grid-cols-1 gap-2">
+                              {product.compatibility_models?.map((model) => (
+                                <div
+                                  key={model}
+                                  className={`p-2.5 rounded-lg border flex items-center gap-2 text-xs font-semibold ${
+                                    isLight
+                                      ? 'bg-gray-50 border-gray-200 text-gray-800'
+                                      : 'bg-[#12151c] border-[#222838] text-white'
+                                  }`}
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-[#e51b24] shrink-0" />
+                                  <span>{model}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {tab.id === 'installation' && (
+                          <div className={`text-xs leading-relaxed space-y-2 ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
+                            <p>{product.installation_info || 'Comprehensive 1:1 scale cutting template and all mounting brackets are included in the packaging.'}</p>
+                            <p className="text-[11px] text-gray-400">
+                              Need professional fitment? WhatsApp our technical team for verified workshops.
+                            </p>
+                          </div>
+                        )}
+
+                        {tab.id === 'delivery' && (
+                          <div className={`text-xs leading-relaxed space-y-2 ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
+                            <p>
+                              <strong>Dispatches within 24–48 hours:</strong> Packed in wooden/heavy-corrugated protective crates to prevent transit damages.
+                            </p>
+                            <p>
+                              <strong>Returns:</strong> 7-day hassle-free replacement or return on undamaged items in original packaging.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+
+            {/* Desktop View: Horizontal Tabs (current style unchanged) */}
+            <div className="hidden md:block">
+              {/* Tabs Header */}
+              <div className={`flex border-b overflow-x-auto gap-8 ${
+                isLight ? 'border-gray-200' : 'border-[#1f2533]'
+              }`}>
+                {[
+                  { id: 'description', label: 'Description' },
+                  { id: 'specifications', label: 'Specifications' },
+                  { id: 'compatibility', label: 'Compatibility' },
+                  { id: 'installation', label: 'Installation' },
+                  { id: 'delivery', label: 'Delivery & Returns' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`pb-4 text-xs sm:text-sm font-bold uppercase tracking-wider transition-colors relative whitespace-nowrap ${
+                      activeTab === tab.id
+                        ? 'text-[#e51b24]'
+                        : isLight
+                        ? 'text-gray-500 hover:text-gray-900'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {tab.label}
+                    {activeTab === tab.id && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#e51b24]" />
+                    )}
+                  </button>
+                ))}
+              </div>
 
             {/* Tab Contents */}
             <div className="py-8">
@@ -509,6 +626,7 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                   </p>
                 </div>
               )}
+            </div>
             </div>
 
           </div>

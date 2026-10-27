@@ -25,12 +25,12 @@ export function CustomerGallery() {
               <span>Community Stories</span>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight uppercase leading-[1.1]">
+            <h2 className="text-[21px] sm:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight uppercase leading-[1.1]">
               Real Adventures <br />
               <span className="text-[#e51b24]">Real People</span>
             </h2>
 
-            <p className="text-sm text-gray-600 mt-4 leading-relaxed">
+            <p className="text-xs sm:text-sm text-gray-600 mt-3 leading-relaxed">
               See how our customers gear up and conquer extreme trails across India with Bull Gear armor and recovery systems.
             </p>
 

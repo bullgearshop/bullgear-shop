@@ -463,7 +463,7 @@ export const DEFAULT_BANNERS: Banner[] = [
     highlight_text: 'REAL ADVENTURES',
     subtitle: 'Premium 4x4 accessories designed for offroaders, travellers, overland and adventure seekers.',
     desktop_image_url: '/images/hero-suv.jpg',
-    mobile_image_url: '/images/hero-suv.jpg',
+    mobile_image_url: '/images/gallery-2.jpg',
     button_label: 'Shop Products',
     button_link: '/shop',
     display_order: 1,
@@ -475,7 +475,7 @@ export const DEFAULT_BANNERS: Banner[] = [
     highlight_text: 'BEYOND LIMITS',
     subtitle: 'High performance automotive armor, lighting, and recovery systems built to withstand the toughest expeditions.',
     desktop_image_url: '/images/adventure-banner.jpg',
-    mobile_image_url: '/images/adventure-banner.jpg',
+    mobile_image_url: '/images/gallery-3.jpg',
     button_label: 'Explore Catalog',
     button_link: '/shop',
     display_order: 2,
@@ -486,8 +486,8 @@ export const DEFAULT_BANNERS: Banner[] = [
     title: 'GEAR UP',
     highlight_text: 'YOUR DRIVE',
     subtitle: 'Heavy duty accessories manufactured with aerospace-grade materials for ultimate durability.',
-    desktop_image_url: '/images/hero-suv.jpg',
-    mobile_image_url: '/images/hero-suv.jpg',
+    desktop_image_url: '/images/gallery-1.jpg',
+    mobile_image_url: '/images/gallery-5.jpg',
     button_label: 'View Accessories',
     button_link: '/categories/snorkels',
     display_order: 3,
@@ -511,8 +511,8 @@ export const DEFAULT_SETTINGS: SiteSettings = {
 // In-memory runtime cache for seamless operation and modifications
 let memoryProducts = [...DEFAULT_PRODUCTS];
 let memoryCategories = [...DEFAULT_CATEGORIES];
-let memoryBanners = [...DEFAULT_BANNERS];
-let memoryOrders: Order[] = [
+const memoryBanners = [...DEFAULT_BANNERS];
+const memoryOrders: Order[] = [
   {
     id: 'ord-1',
     order_number: 'BG-2026-0001',
