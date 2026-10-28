@@ -15,6 +15,7 @@ export function HeroBanner({ banners }: HeroBannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
+    // 1. Check local storage
     try {
       const saved = localStorage.getItem('bullgear_admin_banners');
       if (saved) {
@@ -23,9 +24,36 @@ export function HeroBanner({ banners }: HeroBannerProps) {
           setActiveBanners(parsed.filter((b: Banner) => b.is_active));
         }
       }
-    } catch {
-      // Ignore
-    }
+    } catch {}
+
+    // 2. Fetch live banners from API
+    fetch('/api/banners')
+      .then((res) => res.json())
+      .then((resData) => {
+        if (resData.success && Array.isArray(resData.data) && resData.data.length > 0) {
+          const active = resData.data.filter((b: Banner) => b.is_active);
+          setActiveBanners(active);
+          try {
+            localStorage.setItem('bullgear_admin_banners', JSON.stringify(resData.data));
+          } catch {}
+        }
+      })
+      .catch(() => {});
+
+    // 3. Listen for admin banner updates
+    const handleUpdate = () => {
+      try {
+        const saved = localStorage.getItem('bullgear_admin_banners');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setActiveBanners(parsed.filter((b: Banner) => b.is_active));
+          }
+        }
+      } catch {}
+    };
+    window.addEventListener('bullgear_banners_updated', handleUpdate);
+    return () => window.removeEventListener('bullgear_banners_updated', handleUpdate);
   }, []);
 
   // Auto rotate slides
@@ -42,7 +70,8 @@ export function HeroBanner({ banners }: HeroBannerProps) {
     title: 'ENGINEERED FOR',
     highlight_text: 'REAL ADVENTURES',
     subtitle: 'Premium 4x4 accessories designed for offroaders, travellers, overland and adventure seekers.',
-    desktop_image_url: '/images/hero-suv.jpg',
+    desktop_image_url: '',
+    mobile_image_url: '',
     button_label: 'Shop Products',
     button_link: '/shop',
     display_order: 1,

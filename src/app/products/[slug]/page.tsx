@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     };
   }
 
-  const primaryImage = product.images?.[0]?.image_url || '/images/hero-suv.jpg';
+  const primaryImage = product.images?.[0]?.image_url || '';
 
   return {
     title: product.seo_title || `${product.name} | Bull Gear 4x4 Accessories`,
@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     openGraph: {
       title: product.name,
       description: product.short_description || product.description,
-      images: [primaryImage],
+      images: primaryImage ? [primaryImage] : [],
     },
   };
 }

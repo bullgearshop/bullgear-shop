@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured, getServiceSupabase } from './supabase';
-import { Product, Category, Banner, Order, SiteSettings } from './types';
+import { Product, Category, Banner, Order, SiteSettings, StockStatus } from './types';
 
 // Default initial categories matching the reference design
 export const DEFAULT_CATEGORIES: Category[] = [
@@ -462,8 +462,8 @@ export const DEFAULT_BANNERS: Banner[] = [
     title: 'ENGINEERED FOR',
     highlight_text: 'REAL ADVENTURES',
     subtitle: 'Premium 4x4 accessories designed for offroaders, travellers, overland and adventure seekers.',
-    desktop_image_url: '/images/hero-suv.jpg',
-    mobile_image_url: '/images/gallery-2.jpg',
+    desktop_image_url: '',
+    mobile_image_url: '',
     button_label: 'Shop Products',
     button_link: '/shop',
     display_order: 1,
@@ -474,8 +474,8 @@ export const DEFAULT_BANNERS: Banner[] = [
     title: 'EXPLORE',
     highlight_text: 'BEYOND LIMITS',
     subtitle: 'High performance automotive armor, lighting, and recovery systems built to withstand the toughest expeditions.',
-    desktop_image_url: '/images/adventure-banner.jpg',
-    mobile_image_url: '/images/gallery-3.jpg',
+    desktop_image_url: '',
+    mobile_image_url: '',
     button_label: 'Explore Catalog',
     button_link: '/shop',
     display_order: 2,
@@ -486,10 +486,10 @@ export const DEFAULT_BANNERS: Banner[] = [
     title: 'GEAR UP',
     highlight_text: 'YOUR DRIVE',
     subtitle: 'Heavy duty accessories manufactured with aerospace-grade materials for ultimate durability.',
-    desktop_image_url: '/images/gallery-1.jpg',
-    mobile_image_url: '/images/gallery-5.jpg',
+    desktop_image_url: '',
+    mobile_image_url: '',
     button_label: 'View Accessories',
-    button_link: '/categories/snorkels',
+    button_link: '/shop',
     display_order: 3,
     is_active: true,
   },
@@ -600,9 +600,10 @@ export async function getProducts(options?: {
   isBestSeller?: boolean;
   limit?: number;
 }): Promise<Product[]> {
-  if (isSupabaseConfigured && supabase) {
+  const client = getServiceSupabase() || supabase;
+  if (isSupabaseConfigured && client) {
     try {
-      let query = supabase
+      let query = client
         .from('products')
         .select(`
           *,
@@ -617,12 +618,35 @@ export async function getProducts(options?: {
 
       const { data, error } = await query;
       if (!error && data && data.length > 0) {
-        return data.map((item: any) => ({
-          ...item,
-          category_name: item.categories?.name,
-          category_slug: item.categories?.slug,
-          images: (item.images || []).sort((a: any, b: any) => a.display_order - b.display_order),
-        }));
+        let mapped = data.map((item: any) => {
+          const specs = item.specifications || {};
+          const featuredOrder = specs._featured_order !== undefined ? Number(specs._featured_order) : (item.featured_order || 99);
+          const bestSellerOrder = specs._best_seller_order !== undefined ? Number(specs._best_seller_order) : (item.best_seller_order || 99);
+          const cleanSpecs: Record<string, string> = {};
+          for (const [k, v] of Object.entries(specs)) {
+            if (!k.startsWith('_')) cleanSpecs[k] = String(v);
+          }
+          const qty = typeof item.stock_quantity === 'number' ? item.stock_quantity : parseInt(item.stock_quantity || '0', 10);
+          const threshold = item.low_stock_threshold || 5;
+          const status: StockStatus = qty <= 0 ? 'out_of_stock' : qty <= threshold ? 'limited_stock' : (item.stock_status || 'in_stock');
+
+          return {
+            ...item,
+            specifications: cleanSpecs,
+            stock_status: status,
+            featured_order: featuredOrder,
+            best_seller_order: bestSellerOrder,
+            category_name: item.categories?.name,
+            category_slug: item.categories?.slug,
+            images: (item.images || []).sort((a: any, b: any) => a.display_order - b.display_order),
+          };
+        });
+
+        if (options?.categorySlug) {
+          mapped = mapped.filter((p: any) => p.category_slug === options.categorySlug || p.categories?.slug === options.categorySlug);
+        }
+
+        return mapped;
       }
     } catch {
       // Fall through to memory
@@ -646,9 +670,10 @@ export async function getProducts(options?: {
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
-  if (isSupabaseConfigured && supabase) {
+  const client = getServiceSupabase() || supabase;
+  if (isSupabaseConfigured && client) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('products')
         .select(`
           *,
@@ -659,8 +684,19 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
         .single();
 
       if (!error && data) {
+        const specs = data.specifications || {};
+        const featuredOrder = specs._featured_order !== undefined ? Number(specs._featured_order) : (data.featured_order || 99);
+        const bestSellerOrder = specs._best_seller_order !== undefined ? Number(specs._best_seller_order) : (data.best_seller_order || 99);
+        const cleanSpecs: Record<string, string> = {};
+        for (const [k, v] of Object.entries(specs)) {
+          if (!k.startsWith('_')) cleanSpecs[k] = String(v);
+        }
+
         return {
           ...data,
+          featured_order: featuredOrder,
+          best_seller_order: bestSellerOrder,
+          specifications: cleanSpecs,
           category_name: data.categories?.name,
           category_slug: data.categories?.slug,
           images: (data.images || []).sort((a: any, b: any) => a.display_order - b.display_order),
@@ -674,9 +710,10 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 }
 
 export async function getCategories(): Promise<Category[]> {
-  if (isSupabaseConfigured && supabase) {
+  const client = getServiceSupabase() || supabase;
+  if (isSupabaseConfigured && client) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('categories')
         .select('*')
         .eq('is_active', true)
@@ -693,9 +730,10 @@ export async function getCategories(): Promise<Category[]> {
 }
 
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
-  if (isSupabaseConfigured && supabase) {
+  const client = getServiceSupabase() || supabase;
+  if (isSupabaseConfigured && client) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('categories')
         .select('*')
         .eq('slug', slug)
@@ -709,9 +747,10 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
 }
 
 export async function getBanners(): Promise<Banner[]> {
-  if (isSupabaseConfigured && supabase) {
+  const client = getServiceSupabase() || supabase;
+  if (isSupabaseConfigured && client) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('banners')
         .select('*')
         .eq('is_active', true)

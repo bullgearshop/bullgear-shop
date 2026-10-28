@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { CartProvider } from '@/lib/cart-context';
+import { IntroAnimation } from '@/components/common/IntroAnimation';
 
 export const metadata: Metadata = {
   title: 'Bull Gear | Premium Off-Road Accessories & Overland Gear',
@@ -49,6 +50,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="light">
       <body className="min-h-screen bg-white text-gray-900 flex flex-col font-sans antialiased">
+        <IntroAnimation />
         <CartProvider>
           {children}
         </CartProvider>

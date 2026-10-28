@@ -203,7 +203,7 @@ export default function AdminContentPage() {
       {/* Header */}
       <div>
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#e51b24]/10 text-[#e51b24] text-[11px] font-bold uppercase tracking-wider mb-2">
-          <Sparkles className="w-3.5 h-3.5" />
+         
           <span>Homepage Media & Story Studio</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-gray-900">

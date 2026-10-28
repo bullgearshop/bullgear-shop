@@ -167,13 +167,19 @@ export function WhatsAppOrderModal({
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Product preview */}
               <div className="flex items-center gap-3.5 p-3 rounded-xl bg-[#0c0e14] border border-[#1f2533]">
-                <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-[#161a22] shrink-0">
-                  <Image
-                    src={product.images?.[0]?.image_url || '/images/product-snorkel.jpg'}
-                    alt={product.name}
-                    fill
-                    className="object-contain p-1"
-                  />
+                <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
+                  {product.images?.[0]?.image_url ? (
+                    <Image
+                      src={product.images[0].image_url}
+                      alt={product.name}
+                      fill
+                      className="object-contain p-1"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[8px] text-gray-400 font-bold uppercase text-center p-1">
+                      {product.name}
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="text-sm font-bold text-white truncate">{product.name}</h4>
