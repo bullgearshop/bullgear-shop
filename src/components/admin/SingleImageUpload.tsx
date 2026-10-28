@@ -95,16 +95,47 @@ export function SingleImageUpload({
       </div>
 
       {value ? (
-        /* Preview Card */
-        <div className="relative rounded-xl border border-gray-200 bg-gray-50 p-3 overflow-hidden group">
-          <div className="relative w-full h-44 rounded-lg overflow-hidden bg-gray-900 border border-gray-200">
+        /* Preview Card - clicking image triggers file picker to change image */
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={onDrop}
+          className={`relative rounded-xl border p-3 overflow-hidden transition ${
+            isDragging ? 'border-[#e51b24] bg-red-50/50' : 'border-gray-200 bg-gray-50'
+          }`}
+        >
+          <div
+            onClick={() => !isUploading && fileInputRef.current?.click()}
+            className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-900 border border-gray-200 cursor-pointer group/img"
+            title="Click image to change"
+          >
             <Image
               src={value}
               alt={label}
               fill
-              className="object-contain"
+              className="object-contain transition-transform duration-200 group-hover/img:scale-[1.02]"
               unoptimized={value.startsWith('http')}
             />
+
+            {/* Click to change hover overlay */}
+            <div className="absolute inset-0 bg-black/55 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-1 p-3">
+              <div className="p-2 rounded-full bg-white/20 backdrop-blur-xs text-white shadow-xs">
+                <UploadCloud className="w-5 h-5" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-wider">
+                Click Image to Change
+              </span>
+              <span className="text-[10px] text-gray-300">
+                or drag and drop a new image here
+              </span>
+            </div>
+
+            {isUploading && (
+              <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center text-white">
+                <Loader2 className="w-6 h-6 animate-spin text-[#e51b24] mb-1" />
+                <span className="text-xs font-bold">Uploading new image...</span>
+              </div>
+            )}
           </div>
 
           <div className="mt-2.5 flex items-center justify-between gap-2">

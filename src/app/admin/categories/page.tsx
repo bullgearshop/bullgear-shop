@@ -6,6 +6,7 @@ import { Plus, Edit2, Trash2, X, ExternalLink, Check, AlertCircle, Loader2, Spar
 import { Category } from '@/lib/types';
 import Link from 'next/link';
 import { SingleImageUpload } from '@/components/admin/SingleImageUpload';
+import { ConfirmDeleteModal } from '@/components/admin/ConfirmDeleteModal';
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -14,6 +15,11 @@ export default function AdminCategoriesPage() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Custom Delete Modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [formName, setFormName] = useState('');
   const [formSlug, setFormSlug] = useState('');
@@ -99,7 +105,7 @@ export default function AdminCategoriesPage() {
     setFormName('');
     setFormSlug('');
     setFormDescription('');
-    setFormImage('/images/product-snorkel.jpg');
+    setFormImage('');
     setFormIsFeatured(featuredCount < 4);
     setModalOpen(true);
   };
@@ -169,10 +175,15 @@ export default function AdminCategoriesPage() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to permanently delete category "${name}"? It will be removed from admin and the shop.`)) {
-      return;
-    }
+  const handleDeleteClick = (category: Category) => {
+    setCategoryToDelete(category);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!categoryToDelete) return;
+    setIsDeleting(true);
+    const { id, name } = categoryToDelete;
 
     // Optimistic UI update
     const previous = [...categories];
@@ -196,6 +207,10 @@ export default function AdminCategoriesPage() {
     } catch {
       showNotification('error', 'Network error removing category');
       setCategories(previous);
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
+      setCategoryToDelete(null);
     }
   };
 
@@ -243,7 +258,7 @@ export default function AdminCategoriesPage() {
       {/* Info bar on Homepage Featured Selection */}
       <div className="p-4 rounded-xl bg-blue-50/70 border border-blue-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-blue-900">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-[#e51b24] shrink-0" />
+          
           <span>
             <strong>Shop By Category (Homepage):</strong> Exactly 4 categories will display on the homepage.
             Use the tick toggle below to select which 4 to show.
@@ -301,7 +316,7 @@ export default function AdminCategoriesPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDelete(c.id, c.name)}
+                      onClick={() => handleDeleteClick(c)}
                       className="p-1.5 text-red-600 hover:bg-red-50 rounded cursor-pointer"
                       title="Delete category"
                     >
@@ -469,6 +484,23 @@ export default function AdminCategoriesPage() {
           </div>
         </div>
       )}
+
+      {/* Bull Gear Centered Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={deleteModalOpen}
+        title="Delete Category"
+        itemName={categoryToDelete?.name}
+        message="Are you sure you want to permanently delete this category? It will be removed from admin and the shop."
+        confirmText="Delete Category"
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onClose={() => {
+          if (!isDeleting) {
+            setDeleteModalOpen(false);
+            setCategoryToDelete(null);
+          }
+        }}
+      />
     </div>
   );
 }

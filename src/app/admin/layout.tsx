@@ -261,7 +261,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         {/* Admin Badge */}
-        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/80 flex items-center justify-between">
+        <div className="px-5 py-3 border-b border-gray-100  flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-xs font-bold uppercase tracking-wider text-gray-700">

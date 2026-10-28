@@ -11,34 +11,66 @@ interface BestSellersProps {
 }
 
 export function BestSellers({ products }: BestSellersProps) {
-  // Storefront displays strictly 6 products, synchronized with admin
-  const [displayProducts, setDisplayProducts] = useState<Product[]>(() => {
-    const best = products.filter((p) => p.is_best_seller);
+  const formatBest = (list: Product[]) => {
+    const best = list.filter((p) => p.is_best_seller);
+    best.sort((a, b) => (a.best_seller_order ?? 99) - (b.best_seller_order ?? 99));
     if (best.length >= 6) return best.slice(0, 6);
-    return [...best, ...products.filter((p) => !p.is_best_seller)].slice(0, 6);
-  });
+    const others = list.filter((p) => !p.is_best_seller);
+    return [...best, ...others].slice(0, 6);
+  };
 
-  // Listen to any updates saved from Admin Products
+  // Storefront displays strictly 6 products, synchronized with admin
+  const [displayProducts, setDisplayProducts] = useState<Product[]>(() => formatBest(products));
+
+  // Listen to any updates saved from Admin Products & fetch from API
   useEffect(() => {
+    // 1. Check localStorage first
     try {
       const saved = localStorage.getItem('bullgear_admin_products');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const best = parsed.filter((p: Product) => p.is_best_seller);
-          if (best.length > 0) {
-            if (best.length >= 6) {
-              setDisplayProducts(best.slice(0, 6));
-            } else {
-              const others = parsed.filter((p: Product) => !p.is_best_seller);
-              setDisplayProducts([...best, ...others].slice(0, 6));
-            }
-          }
+          setDisplayProducts(formatBest(parsed));
         }
       }
-    } catch {
-      // Fallback
-    }
+    } catch {}
+
+    // 2. Fetch fresh products from API
+    const fetchLatest = () => {
+      fetch('/api/products')
+        .then((res) => res.json())
+        .then((resData) => {
+          if (resData.success && Array.isArray(resData.data) && resData.data.length > 0) {
+            setDisplayProducts(formatBest(resData.data));
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchLatest();
+
+    // 3. Listen to admin updates
+    const handleUpdate = () => {
+      try {
+        const saved = localStorage.getItem('bullgear_admin_products');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setDisplayProducts(formatBest(parsed));
+            return;
+          }
+        }
+      } catch {}
+      fetchLatest();
+    };
+
+    window.addEventListener('bullgear_products_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener('bullgear_products_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, []);
 
   // Group strictly 6 products into pages of 3 for mobile (exactly 2 pages, 2 dots)

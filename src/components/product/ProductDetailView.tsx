@@ -43,6 +43,7 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
 
   // Hydrate updated product from admin storage if edited
   useEffect(() => {
+    // 1. Check localStorage first
     try {
       const saved = localStorage.getItem('bullgear_admin_products');
       if (saved) {
@@ -57,21 +58,55 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
           }
         }
       }
-    } catch {
-      // Ignore
-    }
-  }, [product.slug, product.id]);
+    } catch {}
 
-  const images = currentProduct.images?.length ? currentProduct.images : [
-    {
-      id: 'img-def',
-      product_id: currentProduct.id,
-      image_url: '/images/product-snorkel.jpg',
-      alt_text: currentProduct.name,
-      display_order: 1,
-      is_primary: true,
-    },
-  ];
+    // 2. Fetch live from API
+    const fetchLatest = () => {
+      fetch('/api/products')
+        .then((res) => res.json())
+        .then((resData) => {
+          if (resData.success && Array.isArray(resData.data)) {
+            const match = resData.data.find((p: Product) => p.slug === product.slug || p.id === product.id);
+            if (match) {
+              setCurrentProduct(match);
+              if (match.compatibility_models?.length && !match.compatibility_models.includes(selectedVehicle)) {
+                setSelectedVehicle(match.compatibility_models[0]);
+              }
+            }
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchLatest();
+
+    const handleUpdate = () => {
+      try {
+        const saved = localStorage.getItem('bullgear_admin_products');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const match = parsed.find((p: Product) => p.slug === product.slug || p.id === product.id);
+            if (match) {
+              setCurrentProduct(match);
+              return;
+            }
+          }
+        }
+      } catch {}
+      fetchLatest();
+    };
+
+    window.addEventListener('bullgear_products_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener('bullgear_products_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [product.slug, product.id, selectedVehicle]);
+
+  const images = currentProduct.images?.length ? currentProduct.images : [];
 
   const currentImage = images[activeImageIndex] || images[0];
 
@@ -89,17 +124,11 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
     setActiveImageIndex((prev) => (prev + 1) % images.length);
   };
 
-  // Ensure specifications always has content even if not added yet
-  const specs = (currentProduct.specifications && Object.keys(currentProduct.specifications).length > 0)
-    ? currentProduct.specifications
-    : {
-        'Material': 'High-Grade UV-Stabilized Polyethylene / Heavy Duty Steel',
-        'Finish': 'Textured Satin Anti-Scratch Black',
-        'Mounting Type': 'Direct OEM Factory Chassis Fitting Points',
-        'Hardware': 'Grade 304 Marine Stainless Steel Bolts & Brackets',
-        'Fitment': 'Direct Bolt-On (Precision CNC Laser-Cut)',
-        'Warranty': '1-Year Bull Gear Replacement Guarantee',
-      };
+  // Specifications: strictly what admin entered (internal _ system keys filtered out)
+  const cleanSpecsEntries = Object.entries(currentProduct.specifications || {})
+    .filter(([k, v]) => !k.startsWith('_') && k.trim() !== '' && v !== undefined && v !== '');
+
+  const specs = Object.fromEntries(cleanSpecsEntries);
 
   const installationText = currentProduct.installation_info || 
     'Direct bolt-on installation using OEM factory mounting points. Includes comprehensive 1:1 scale cutting/drilling template, all high-tensile brackets, stainless steel hardware, and step-by-step fitment guide. No welding required.';
@@ -185,14 +214,23 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                 </button>
 
                 {/* Main Product Image - Full uncropped containment */}
-                <div className="relative w-full h-[260px] sm:h-[420px]">
-                  <Image
-                    src={currentImage.image_url}
-                    alt={currentImage.alt_text || currentProduct.name}
-                    fill
-                    priority
-                    className="object-contain"
-                  />
+                <div className="relative w-full h-[260px] sm:h-[420px] flex items-center justify-center">
+                  {currentImage?.image_url ? (
+                    <Image
+                      src={currentImage.image_url}
+                      alt={currentImage.alt_text || currentProduct.name}
+                      fill
+                      priority
+                      className="object-contain"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-gray-400 p-6 text-center">
+                      <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                        {currentProduct.name}
+                      </span>
+                      <span className="text-[11px] text-gray-400 mt-1">Image not yet uploaded by admin</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Right arrow */}
@@ -231,19 +269,31 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                     {formatRupees(currentProduct.price)}
                   </span>
                 )}
-                {currentProduct.stock_status === 'in_stock' ? (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-500/30">
-                    In Stock
-                  </span>
-                ) : currentProduct.stock_status === 'limited_stock' ? (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-600 border border-amber-500/30">
-                    Limited Stock ({currentProduct.stock_quantity} left)
-                  </span>
-                ) : (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-500/15 text-red-600 border border-red-500/30">
-                    Out of Stock
-                  </span>
-                )}
+                {(() => {
+                  const stockQty = typeof currentProduct.stock_quantity === 'number' ? currentProduct.stock_quantity : parseInt(currentProduct.stock_quantity as any, 10);
+                  const isOutOfStock = currentProduct.stock_status === 'out_of_stock' || (!isNaN(stockQty) && stockQty <= 0);
+                  const isLimitedStock = !isOutOfStock && (currentProduct.stock_status === 'limited_stock' || (!isNaN(stockQty) && stockQty > 0 && stockQty <= (currentProduct.low_stock_threshold || 5)));
+
+                  if (isOutOfStock) {
+                    return (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#e51b24] text-white shadow-xs">
+                        Out of Stock
+                      </span>
+                    );
+                  }
+                  if (isLimitedStock) {
+                    return (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-700 border border-amber-500/30">
+                        Limited Stock {!isNaN(stockQty) && stockQty > 0 ? `(${stockQty} left)` : ''}
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-500/30">
+                      In Stock
+                    </span>
+                  );
+                })()}
               </div>
 
               {/* Short Description */}
@@ -280,8 +330,9 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                   <div className="flex items-center border border-gray-300 bg-gray-50 rounded-lg overflow-hidden h-[41px]">
                     <button
                       type="button"
+                      disabled={currentProduct.stock_status === 'out_of_stock' || currentProduct.stock_quantity <= 0}
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="px-3 py-2 text-gray-500 hover:text-black font-bold cursor-pointer"
+                      className="px-3 py-2 text-gray-500 hover:text-black font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       -
                     </button>
@@ -290,8 +341,9 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                     </span>
                     <button
                       type="button"
+                      disabled={currentProduct.stock_status === 'out_of_stock' || currentProduct.stock_quantity <= 0}
                       onClick={() => setQuantity(quantity + 1)}
-                      className="px-3 py-2 text-gray-500 hover:text-black font-bold cursor-pointer"
+                      className="px-3 py-2 text-gray-500 hover:text-black font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       +
                     </button>
@@ -301,26 +353,43 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
               </div>
 
               {/* Action Buttons: Add to Cart (Red) & Buy Now / Order via WhatsApp */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                <button
-                  type="button"
-                  onClick={handleAddToCart}
-                  disabled={currentProduct.stock_status === 'out_of_stock'}
-                  className="w-full py-4 px-6 bg-[#e51b24] hover:bg-[#c8141d] text-white font-extrabold text-xs uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#e51b24]/25 disabled:opacity-50 cursor-pointer"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>Add to Cart</span>
-                </button>
+              {(() => {
+                const stockQty = typeof currentProduct.stock_quantity === 'number' ? currentProduct.stock_quantity : parseInt(currentProduct.stock_quantity as any, 10);
+                const isOutOfStock = currentProduct.stock_status === 'out_of_stock' || (!isNaN(stockQty) && stockQty <= 0);
 
-                <button
-                  type="button"
-                  onClick={() => setIsWhatsAppOpen(true)}
-                  className="w-full py-4 px-6 font-extrabold text-xs uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 border bg-black hover:bg-gray-800 text-white border-black cursor-pointer shadow-md"
-                >
-                  <MessageSquare className="w-4 h-4 text-[#25D366]" />
-                  <span>Buy Now (WhatsApp)</span>
-                </button>
-              </div>
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      disabled={isOutOfStock}
+                      className="w-full py-4 px-6 bg-[#e51b24] hover:bg-[#c8141d] text-white font-extrabold text-xs uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#e51b24]/25 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      <span>{isOutOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
+                    </button>
+
+                    {isOutOfStock ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full py-4 px-6 font-extrabold text-xs uppercase tracking-wider rounded-lg flex items-center justify-center gap-2 bg-[#e51b24] text-white cursor-not-allowed shadow-md select-none opacity-90"
+                      >
+                        <span>OUT OF STOCK</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsWhatsAppOpen(true)}
+                        className="w-full py-4 px-6 font-extrabold text-xs uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 border bg-black hover:bg-gray-800 text-white border-black cursor-pointer shadow-md"
+                      >
+                        <MessageSquare className="w-4 h-4 text-[#25D366]" />
+                        <span>Buy Now (WhatsApp)</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Success Notification */}
               {addedToast && (
@@ -414,25 +483,31 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
 
                         {tab.id === 'specifications' && (
                           <div className="overflow-x-auto">
-                            <table className="w-full text-xs border-collapse">
-                              <tbody>
-                                {Object.entries(specs).map(([key, val], idx) => (
-                                  <tr
-                                    key={key}
-                                    className={`border-b ${
-                                      idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'
-                                    } border-gray-200`}
-                                  >
-                                    <td className="py-2.5 px-3 font-bold text-gray-500 w-2/5 uppercase tracking-wider text-[10px]">
-                                      {key}
-                                    </td>
-                                    <td className="py-2.5 px-3 font-semibold text-gray-900">
-                                      {val}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                            {Object.keys(specs).length > 0 ? (
+                              <table className="w-full text-xs border-collapse">
+                                <tbody>
+                                  {Object.entries(specs).map(([key, val], idx) => (
+                                    <tr
+                                      key={key}
+                                      className={`border-b ${
+                                        idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'
+                                      } border-gray-200`}
+                                    >
+                                      <td className="py-2.5 px-3 font-bold text-gray-500 w-2/5 uppercase tracking-wider text-[10px]">
+                                        {key}
+                                      </td>
+                                      <td className="py-2.5 px-3 font-semibold text-gray-900">
+                                        {val}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <p className="text-xs text-gray-500 py-3 italic">
+                                Specifications to be confirmed with supplier. WhatsApp our team for verified details.
+                              </p>
+                            )}
                           </div>
                         )}
 
@@ -530,25 +605,31 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
 
               {activeTab === 'specifications' && (
                 <div className="max-w-3xl">
-                  <table className="w-full text-xs sm:text-sm border-collapse rounded-xl overflow-hidden border border-gray-200">
-                    <tbody>
-                      {Object.entries(specs).map(([key, val], idx) => (
-                        <tr
-                          key={key}
-                          className={`border-b border-gray-200 ${
-                            idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'
-                          }`}
-                        >
-                          <td className="py-3 px-4 font-bold text-gray-500 w-1/3 uppercase tracking-wider text-xs">
-                            {key}
-                          </td>
-                          <td className="py-3 px-4 font-semibold text-gray-900">
-                            {val}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {Object.keys(specs).length > 0 ? (
+                    <table className="w-full text-xs sm:text-sm border-collapse rounded-xl overflow-hidden border border-gray-200">
+                      <tbody>
+                        {Object.entries(specs).map(([key, val], idx) => (
+                          <tr
+                            key={key}
+                            className={`border-b border-gray-200 ${
+                              idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'
+                            }`}
+                          >
+                            <td className="py-3 px-4 font-bold text-gray-500 w-1/3 uppercase tracking-wider text-xs">
+                              {key}
+                            </td>
+                            <td className="py-3 px-4 font-semibold text-gray-900">
+                              {val}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p className="text-sm text-gray-500 py-4 italic">
+                      Specifications to be confirmed with supplier. WhatsApp our team for verified details.
+                    </p>
+                  )}
                 </div>
               )}
 
