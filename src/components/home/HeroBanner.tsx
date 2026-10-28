@@ -87,11 +87,7 @@ export function HeroBanner({ banners }: HeroBannerProps) {
           </div>
         )}
 
-        {/* Cinematic dark gradients to ensure text readability */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0a0c10] via-[#0a0c10]/80 to-transparent sm:w-4/5 lg:w-3/5" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0c10] via-[#0a0c10]/75 to-transparent sm:via-transparent sm:to-[#0a0c10]/60" />
-        {/* Subtle red atmospheric underglow */}
-        <div className="absolute bottom-0 left-10 w-96 h-96 bg-[#e51b24]/10 rounded-full blur-3xl pointer-events-none" />
+        {/* Black fade overlay removed per user request - image is crisp and clear */}
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28 sm:py-20 lg:py-24 w-full">

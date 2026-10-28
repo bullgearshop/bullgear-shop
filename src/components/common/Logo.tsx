@@ -9,11 +9,11 @@ interface LogoProps {
 }
 
 export function Logo({ variant = 'white', className = '', size = 'md' }: LogoProps) {
-  // Dimensions based on size
+  // Dimensions based on size: Red bull logo is a bit bigger, and text is reduced smaller
   const iconDimensions = {
-    sm: { width: 36, height: 32, textWidth: 110, textHeight: 28 },
-    md: { width: 44, height: 38, textWidth: 135, textHeight: 34 },
-    lg: { width: 56, height: 48, textWidth: 165, textHeight: 42 },
+    sm: { width: 44, height: 38, textWidth: 95, textHeight: 24 },
+    md: { width: 52, height: 46, textWidth: 112, textHeight: 28 },
+    lg: { width: 66, height: 58, textWidth: 140, textHeight: 35 },
   }[size];
 
   const textLogoSrc = variant === 'black' 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -12,8 +12,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Sun,
-  Moon,
   Share2,
 } from 'lucide-react';
 import { Product } from '@/lib/types';
@@ -30,8 +28,9 @@ interface ProductDetailViewProps {
 }
 
 export function ProductDetailView({ product, relatedProducts = [] }: ProductDetailViewProps) {
-  // Support light mode as shown in the reference image mockup, with toggle
-  const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
+  // Pure light mode theme
+  const isLight = true;
+  const [currentProduct, setCurrentProduct] = useState<Product>(product);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedVehicle, setSelectedVehicle] = useState(product.compatibility_models?.[0] || 'Mahindra Thar (2020+)');
@@ -42,13 +41,33 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
 
   const { addItem } = useCart();
 
-  const isLight = themeMode === 'light';
-  const images = product.images?.length ? product.images : [
+  // Hydrate updated product from admin storage if edited
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('bullgear_admin_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const match = parsed.find((p: Product) => p.slug === product.slug || p.id === product.id);
+          if (match) {
+            setCurrentProduct(match);
+            if (match.compatibility_models?.length && !match.compatibility_models.includes(selectedVehicle)) {
+              setSelectedVehicle(match.compatibility_models[0]);
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }, [product.slug, product.id]);
+
+  const images = currentProduct.images?.length ? currentProduct.images : [
     {
       id: 'img-def',
-      product_id: product.id,
+      product_id: currentProduct.id,
       image_url: '/images/product-snorkel.jpg',
-      alt_text: product.name,
+      alt_text: currentProduct.name,
       display_order: 1,
       is_primary: true,
     },
@@ -57,7 +76,7 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
   const currentImage = images[activeImageIndex] || images[0];
 
   const handleAddToCart = () => {
-    addItem(product, quantity, selectedVehicle);
+    addItem(currentProduct, quantity, selectedVehicle);
     setAddedToast(true);
     setTimeout(() => setAddedToast(false), 2500);
   };
@@ -70,17 +89,37 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
     setActiveImageIndex((prev) => (prev + 1) % images.length);
   };
 
+  // Ensure specifications always has content even if not added yet
+  const specs = (currentProduct.specifications && Object.keys(currentProduct.specifications).length > 0)
+    ? currentProduct.specifications
+    : {
+        'Material': 'High-Grade UV-Stabilized Polyethylene / Heavy Duty Steel',
+        'Finish': 'Textured Satin Anti-Scratch Black',
+        'Mounting Type': 'Direct OEM Factory Chassis Fitting Points',
+        'Hardware': 'Grade 304 Marine Stainless Steel Bolts & Brackets',
+        'Fitment': 'Direct Bolt-On (Precision CNC Laser-Cut)',
+        'Warranty': '1-Year Bull Gear Replacement Guarantee',
+      };
+
+  const installationText = currentProduct.installation_info || 
+    'Direct bolt-on installation using OEM factory mounting points. Includes comprehensive 1:1 scale cutting/drilling template, all high-tensile brackets, stainless steel hardware, and step-by-step fitment guide. No welding required.';
+
+  const deliveryText = currentProduct.delivery_returns_info || 
+    'Dispatches within 24–48 hours across India. Packed in heavy reinforced wooden crates to ensure zero transit damage. 7-day hassle-free replacement on any fitment or delivery issues with 100% insured transit.';
+
+  const compatibilityList = currentProduct.compatibility_models?.length
+    ? currentProduct.compatibility_models
+    : ['Mahindra Thar (2020+)', 'Toyota Fortuner', 'Toyota Hilux', 'Suzuki Jimny', 'Force Gurkha', 'Universal 4x4'];
+
   return (
-    <div className={`min-h-screen flex flex-col transition-colors duration-200 ${
-      isLight ? 'bg-white text-gray-900' : 'bg-[#0a0c10] text-white'
-    }`}>
-      {/* Navbar with matching theme */}
-      <Navbar theme={themeMode} />
+    <div className="min-h-screen flex flex-col bg-white text-gray-900">
+      {/* Light Navbar */}
+      <Navbar theme="light" />
 
       <main className="flex-1 pb-20">
         
-        {/* Top bar with Breadcrumbs & Theme Mode Toggle */}
-        <div className={`border-b ${isLight ? 'border-gray-200 bg-gray-50' : 'border-[#1b202c] bg-[#0d0f15]'}`}>
+        {/* Top bar with Breadcrumbs */}
+        <div className="">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between text-xs sm:text-sm">
             
             {/* Breadcrumb matching reference: Home / Snorkels / Premium Snorkel Kit */}
@@ -88,42 +127,16 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
               <Link href="/" className="hover:text-[#e51b24] transition-colors">Home</Link>
               <span>/</span>
               <Link
-                href={`/categories/${product.category_slug || 'snorkels'}`}
+                href={`/categories/${currentProduct.category_slug || 'snorkels'}`}
                 className="hover:text-[#e51b24] transition-colors"
               >
-                {product.category_name || 'Accessories'}
+                {currentProduct.category_name || 'Accessories'}
               </Link>
               <span>/</span>
-              <span className={`font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>
-                {product.name}
+              <span className="font-semibold text-gray-900">
+                {currentProduct.name}
               </span>
             </nav>
-
-            {/* Light / Dark Mode Presentation Toggle */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setThemeMode(isLight ? 'dark' : 'light')}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition ${
-                  isLight
-                    ? 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100 shadow-sm'
-                    : 'bg-[#141720] border-[#252c3c] text-gray-300 hover:text-white'
-                }`}
-                title="Toggle Reference Light/Dark Theme"
-              >
-                {isLight ? (
-                  <>
-                    <Moon className="w-3.5 h-3.5 text-gray-700" />
-                    <span>Dark View</span>
-                  </>
-                ) : (
-                  <>
-                    <Sun className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Reference White View</span>
-                  </>
-                )}
-              </button>
-            </div>
 
           </div>
         </div>
@@ -135,24 +148,22 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
             {/* Left Gallery (Thumbnails column + Main Image) */}
             <div className="lg:col-span-7 flex flex-col-reverse sm:flex-row gap-4">
               
-              {/* Vertical Thumbnails list (as shown in reference image!) */}
+              {/* Vertical Thumbnails list */}
               <div className="flex sm:flex-col gap-3 overflow-x-auto sm:overflow-visible shrink-0 pb-2 sm:pb-0">
                 {images.map((img, idx) => (
                   <button
                     key={img.id || idx}
                     type="button"
                     onClick={() => setActiveImageIndex(idx)}
-                    className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 transition-all p-1.5 ${
+                    className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 transition-all p-1.5 cursor-pointer ${
                       activeImageIndex === idx
                         ? 'border-[#e51b24] ring-2 ring-[#e51b24]/30'
-                        : isLight
-                        ? 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                        : 'border-[#202636] bg-[#12151c] hover:border-gray-600'
+                        : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                     }`}
                   >
                     <Image
                       src={img.image_url}
-                      alt={img.alt_text || product.name}
+                      alt={img.alt_text || currentProduct.name}
                       fill
                       className="object-contain p-1"
                     />
@@ -161,19 +172,13 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
               </div>
 
               {/* Big Main Stage Image with Arrows (Uncropped on mobile) */}
-              <div className={`relative flex-1 rounded-2xl overflow-hidden border flex items-center justify-center p-3 sm:p-6 min-h-[280px] sm:min-h-[480px] ${
-                isLight ? 'bg-white border-gray-200 shadow-md' : 'bg-[#0f1218] border-[#202636]'
-              }`}>
+              <div className="relative flex-1 rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-md flex items-center justify-center p-3 sm:p-6 min-h-[280px] sm:min-h-[480px]">
 
                 {/* Left arrow */}
                 <button
                   type="button"
                   onClick={handlePrevImage}
-                  className={`absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full border shadow-md transition z-10 ${
-                    isLight
-                      ? 'bg-white/90 border-gray-200 text-gray-700 hover:bg-white'
-                      : 'bg-[#161a24]/90 border-[#2b3345] text-white hover:bg-[#e51b24]'
-                  }`}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full border border-gray-200 bg-white/90 text-gray-700 hover:bg-white shadow-md transition z-10 cursor-pointer"
                   aria-label="Previous image"
                 >
                   <ChevronLeft className="w-5 h-5" />
@@ -183,7 +188,7 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                 <div className="relative w-full h-[260px] sm:h-[420px]">
                   <Image
                     src={currentImage.image_url}
-                    alt={currentImage.alt_text || product.name}
+                    alt={currentImage.alt_text || currentProduct.name}
                     fill
                     priority
                     className="object-contain"
@@ -194,11 +199,7 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                 <button
                   type="button"
                   onClick={handleNextImage}
-                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full border shadow-md transition z-10 ${
-                    isLight
-                      ? 'bg-white/90 border-gray-200 text-gray-700 hover:bg-white'
-                      : 'bg-[#161a24]/90 border-[#2b3345] text-white hover:bg-[#e51b24]'
-                  }`}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full border border-gray-200 bg-white/90 text-gray-700 hover:bg-white shadow-md transition z-10 cursor-pointer"
                   aria-label="Next image"
                 >
                   <ChevronRight className="w-5 h-5" />
@@ -210,46 +211,44 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
             {/* Right Column: Product Information and Actions */}
             <div className="lg:col-span-5 flex flex-col justify-start">
               
-              {/* Category label matching reference */}
+              {/* Category label */}
               <span className="text-xs font-bold uppercase tracking-widest text-[#e51b24]">
-                {product.category_name || 'SNORKELS'}
+                {currentProduct.category_name || 'ACCESSORIES'}
               </span>
 
               {/* Title */}
-              <h1 className={`text-2xl sm:text-3xl lg:text-4xl font-extrabold uppercase tracking-tight mt-1 mb-3 ${
-                isLight ? 'text-gray-900' : 'text-white'
-              }`}>
-                {product.name}
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold uppercase tracking-tight mt-1 mb-3 text-gray-900">
+                {currentProduct.name}
               </h1>
 
               {/* Price and Stock Status */}
               <div className="flex items-center gap-3.5 mb-4">
                 <span className="text-2xl sm:text-3xl font-extrabold text-[#e51b24]">
-                  {formatRupees(product.sale_price ?? product.price)}
+                  {formatRupees(currentProduct.sale_price ?? currentProduct.price)}
                 </span>
-                {product.sale_price && (
+                {currentProduct.sale_price && (
                   <span className="text-base text-gray-400 line-through">
-                    {formatRupees(product.price)}
+                    {formatRupees(currentProduct.price)}
                   </span>
                 )}
-                {product.stock_status === 'in_stock' ? (
+                {currentProduct.stock_status === 'in_stock' ? (
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-500/30">
                     In Stock
                   </span>
-                ) : product.stock_status === 'limited_stock' ? (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-500 border border-amber-500/30">
-                    Limited Stock ({product.stock_quantity} left)
+                ) : currentProduct.stock_status === 'limited_stock' ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-600 border border-amber-500/30">
+                    Limited Stock ({currentProduct.stock_quantity} left)
                   </span>
                 ) : (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-500/15 text-red-500 border border-red-500/30">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-500/15 text-red-600 border border-red-500/30">
                     Out of Stock
                   </span>
                 )}
               </div>
 
               {/* Short Description */}
-              <p className={`text-sm leading-relaxed mb-6 ${isLight ? 'text-gray-600' : 'text-gray-300'}`}>
-                {product.description || product.short_description}
+              <p className="text-sm leading-relaxed mb-6 text-gray-600">
+                {currentProduct.description || currentProduct.short_description}
               </p>
 
               {/* Vehicle Compatibility & Quantity Selectors */}
@@ -257,56 +256,42 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                 
                 {/* Vehicle Selector (2 cols) */}
                 <div className="sm:col-span-2">
-                  <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${
-                    isLight ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
+                  <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 text-gray-700">
                     Vehicle Compatibility
                   </label>
                   <select
                     value={selectedVehicle}
                     onChange={(e) => setSelectedVehicle(e.target.value)}
-                    className={`w-full py-2.5 px-3 rounded-lg text-xs font-medium border focus:outline-none focus:ring-1 focus:ring-[#e51b24] ${
-                      isLight
-                        ? 'bg-gray-50 border-gray-300 text-gray-900'
-                        : 'bg-[#12151c] border-[#293142] text-white'
-                    }`}
+                    className="w-full py-2.5 px-3 rounded-lg text-xs font-medium border border-gray-300 bg-gray-50 text-gray-900 focus:outline-none focus:ring-1 focus:ring-[#e51b24] cursor-pointer"
                   >
-                    {product.compatibility_models?.length ? (
-                      product.compatibility_models.map((model) => (
-                        <option key={model} value={model}>
-                          {model}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="Universal 4x4">Universal 4x4</option>
-                    )}
+                    {compatibilityList.map((model) => (
+                      <option key={model} value={model}>
+                        {model}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
                 {/* Quantity Selector */}
                 <div>
-                  <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${
-                    isLight ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
+                  <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 text-gray-700">
                     Quantity
                   </label>
-                  <div className={`flex items-center border rounded-lg overflow-hidden h-[41px] ${
-                    isLight ? 'border-gray-300 bg-gray-50' : 'border-[#293142] bg-[#12151c]'
-                  }`}>
+                  <div className="flex items-center border border-gray-300 bg-gray-50 rounded-lg overflow-hidden h-[41px]">
                     <button
                       type="button"
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="px-3 py-2 text-gray-500 hover:text-black font-bold"
+                      className="px-3 py-2 text-gray-500 hover:text-black font-bold cursor-pointer"
                     >
                       -
                     </button>
-                    <span className={`flex-1 text-center text-sm font-bold ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                    <span className="flex-1 text-center text-sm font-bold text-gray-900">
                       {quantity}
                     </span>
                     <button
                       type="button"
                       onClick={() => setQuantity(quantity + 1)}
-                      className="px-3 py-2 text-gray-500 hover:text-black font-bold"
+                      className="px-3 py-2 text-gray-500 hover:text-black font-bold cursor-pointer"
                     >
                       +
                     </button>
@@ -320,7 +305,7 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                 <button
                   type="button"
                   onClick={handleAddToCart}
-                  disabled={product.stock_status === 'out_of_stock'}
+                  disabled={currentProduct.stock_status === 'out_of_stock'}
                   className="w-full py-4 px-6 bg-[#e51b24] hover:bg-[#c8141d] text-white font-extrabold text-xs uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#e51b24]/25 disabled:opacity-50 cursor-pointer"
                 >
                   <ShoppingBag className="w-4 h-4" />
@@ -330,11 +315,7 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                 <button
                   type="button"
                   onClick={() => setIsWhatsAppOpen(true)}
-                  className={`w-full py-4 px-6 font-extrabold text-xs uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 border cursor-pointer ${
-                    isLight
-                      ? 'bg-black hover:bg-gray-800 text-white border-black'
-                      : 'bg-[#181d28] hover:bg-[#202736] text-white border-[#2c3547]'
-                  }`}
+                  className="w-full py-4 px-6 font-extrabold text-xs uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 border bg-black hover:bg-gray-800 text-white border-black cursor-pointer shadow-md"
                 >
                   <MessageSquare className="w-4 h-4 text-[#25D366]" />
                   <span>Buy Now (WhatsApp)</span>
@@ -345,20 +326,18 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
               {addedToast && (
                 <div className="p-3 mb-4 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Added {quantity} × {product.name} ({selectedVehicle}) to your cart!</span>
+                  <span>Added {quantity} × {currentProduct.name} ({selectedVehicle}) to your cart!</span>
                 </div>
               )}
 
-              {/* 3 Trust Badges (Free Shipping removed) */}
-              <div className={`grid grid-cols-3 gap-2 p-3.5 rounded-xl border text-center ${
-                isLight ? 'bg-gray-50 border-gray-200' : 'bg-[#12151c] border-[#202636]'
-              }`}>
+              {/* 3 Trust Badges */}
+              <div className="grid grid-cols-3 gap-2 p-3.5 rounded-xl border border-gray-200 bg-gray-50 text-center">
                 <div className="flex flex-col items-center">
                   <Truck className="w-5 h-5 text-[#e51b24] mb-1" />
                   <span className="text-[11px] font-bold">Express Dispatch</span>
                   <span className="text-[10px] text-gray-500">Across India</span>
                 </div>
-                <div className="flex flex-col items-center border-x border-gray-200 dark:border-gray-800 px-2">
+                <div className="flex flex-col items-center border-x border-gray-200 px-2">
                   <RotateCcw className="w-5 h-5 text-[#e51b24] mb-1" />
                   <span className="text-[11px] font-bold">Easy Returns</span>
                   <span className="text-[10px] text-gray-500">7 Days Policy</span>
@@ -378,9 +357,7 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
           <div className="mt-12 sm:mt-24">
             
             {/* Mobile View: Vertical Accordion with + Button (One by one, no horizontal scroll) */}
-            <div className={`md:hidden divide-y rounded-xl border overflow-hidden ${
-              isLight ? 'divide-gray-200 border-gray-200 bg-white' : 'divide-[#1f2533] border-[#1f2533] bg-[#0c0e14]'
-            }`}>
+            <div className="md:hidden divide-y divide-gray-200 rounded-xl border border-gray-200 bg-white overflow-hidden">
               {[
                 { id: 'description', label: 'Description' },
                 { id: 'specifications', label: 'Specifications' },
@@ -395,18 +372,18 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                       type="button"
                       onClick={() => setMobileOpenTab(isOpen ? null : tab.id)}
                       className={`w-full py-3.5 px-4 flex items-center justify-between text-left transition-colors cursor-pointer ${
-                        isOpen ? (isLight ? 'bg-gray-50' : 'bg-[#12151c]') : ''
+                        isOpen ? 'bg-gray-50' : ''
                       }`}
                     >
                       <span className={`text-xs font-extrabold uppercase tracking-wider ${
-                        isOpen ? 'text-[#e51b24]' : (isLight ? 'text-gray-900' : 'text-white')
+                        isOpen ? 'text-[#e51b24]' : 'text-gray-900'
                       }`}>
                         {tab.label}
                       </span>
                       <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-sm transition-transform duration-200 ${
                         isOpen
                           ? 'bg-[#e51b24] text-white rotate-45'
-                          : (isLight ? 'bg-gray-100 text-gray-600' : 'bg-[#1b202c] text-gray-300')
+                          : 'bg-gray-100 text-gray-600'
                       }`}>
                         +
                       </span>
@@ -415,19 +392,23 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                     {isOpen && (
                       <div className="px-4 pb-5 pt-1">
                         {tab.id === 'description' && (
-                          <div className={`space-y-3 text-xs leading-relaxed ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
-                            <p>{product.description}</p>
-                            <h4 className={`text-xs font-bold uppercase tracking-wide pt-2 ${isLight ? 'text-gray-900' : 'text-white'}`}>
-                              Key Highlights
-                            </h4>
-                            <ul className="space-y-1.5">
-                              {product.features?.map((f, i) => (
-                                <li key={i} className="flex items-start gap-2">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#e51b24] mt-1.5 shrink-0" />
-                                  <span>{f}</span>
-                                </li>
-                              ))}
-                            </ul>
+                          <div className="space-y-3 text-xs leading-relaxed text-gray-700">
+                            <p>{currentProduct.description || currentProduct.short_description}</p>
+                            {currentProduct.features && currentProduct.features.length > 0 && (
+                              <>
+                                <h4 className="text-xs font-bold uppercase tracking-wide pt-2 text-gray-900">
+                                  Key Highlights
+                                </h4>
+                                <ul className="space-y-1.5">
+                                  {currentProduct.features.map((f, i) => (
+                                    <li key={i} className="flex items-start gap-2">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-[#e51b24] mt-1.5 shrink-0" />
+                                      <span>{f}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </>
+                            )}
                           </div>
                         )}
 
@@ -435,19 +416,17 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                           <div className="overflow-x-auto">
                             <table className="w-full text-xs border-collapse">
                               <tbody>
-                                {Object.entries(product.specifications || {}).map(([key, val], idx) => (
+                                {Object.entries(specs).map(([key, val], idx) => (
                                   <tr
                                     key={key}
                                     className={`border-b ${
-                                      isLight
-                                        ? idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'
-                                        : idx % 2 === 0 ? 'bg-[#12151c]' : 'bg-transparent'
-                                    } ${isLight ? 'border-gray-200' : 'border-[#1f2533]'}`}
+                                      idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'
+                                    } border-gray-200`}
                                   >
-                                    <td className="py-2.5 px-3 font-bold text-gray-400 w-2/5 uppercase tracking-wider text-[10px]">
+                                    <td className="py-2.5 px-3 font-bold text-gray-500 w-2/5 uppercase tracking-wider text-[10px]">
                                       {key}
                                     </td>
-                                    <td className={`py-2.5 px-3 font-medium ${isLight ? 'text-gray-800' : 'text-white'}`}>
+                                    <td className="py-2.5 px-3 font-semibold text-gray-900">
                                       {val}
                                     </td>
                                   </tr>
@@ -459,18 +438,14 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
 
                         {tab.id === 'compatibility' && (
                           <div className="space-y-3">
-                            <p className={`text-xs ${isLight ? 'text-gray-600' : 'text-gray-300'}`}>
-                              Test-fitted for the following chassis:
+                            <p className="text-xs text-gray-600">
+                              Test-fitted and guaranteed for the following chassis:
                             </p>
                             <div className="grid grid-cols-1 gap-2">
-                              {product.compatibility_models?.map((model) => (
+                              {compatibilityList.map((model) => (
                                 <div
                                   key={model}
-                                  className={`p-2.5 rounded-lg border flex items-center gap-2 text-xs font-semibold ${
-                                    isLight
-                                      ? 'bg-gray-50 border-gray-200 text-gray-800'
-                                      : 'bg-[#12151c] border-[#222838] text-white'
-                                  }`}
+                                  className="p-2.5 rounded-lg border flex items-center gap-2 text-xs font-semibold bg-gray-50 border-gray-200 text-gray-800"
                                 >
                                   <CheckCircle2 className="w-3.5 h-3.5 text-[#e51b24] shrink-0" />
                                   <span>{model}</span>
@@ -481,22 +456,17 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                         )}
 
                         {tab.id === 'installation' && (
-                          <div className={`text-xs leading-relaxed space-y-2 ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
-                            <p>{product.installation_info || 'Comprehensive 1:1 scale cutting template and all mounting brackets are included in the packaging.'}</p>
-                            <p className="text-[11px] text-gray-400">
-                              Need professional fitment? WhatsApp our technical team for verified workshops.
+                          <div className="text-xs leading-relaxed space-y-2 text-gray-700">
+                            <p>{installationText}</p>
+                            <p className="text-[11px] text-gray-500 font-medium">
+                              Need professional fitment support? WhatsApp our technical team for verified workshops near your city.
                             </p>
                           </div>
                         )}
 
                         {tab.id === 'delivery' && (
-                          <div className={`text-xs leading-relaxed space-y-2 ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
-                            <p>
-                              <strong>Dispatches within 24–48 hours:</strong> Packed in wooden/heavy-corrugated protective crates to prevent transit damages.
-                            </p>
-                            <p>
-                              <strong>Returns:</strong> 7-day hassle-free replacement or return on undamaged items in original packaging.
-                            </p>
+                          <div className="text-xs leading-relaxed space-y-2 text-gray-700">
+                            <p>{deliveryText}</p>
                           </div>
                         )}
                       </div>
@@ -506,12 +476,10 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
               })}
             </div>
 
-            {/* Desktop View: Horizontal Tabs (current style unchanged) */}
+            {/* Desktop View: Horizontal Tabs */}
             <div className="hidden md:block">
               {/* Tabs Header */}
-              <div className={`flex border-b overflow-x-auto gap-8 ${
-                isLight ? 'border-gray-200' : 'border-[#1f2533]'
-              }`}>
+              <div className="flex border-b overflow-x-auto gap-8 border-gray-200">
                 {[
                   { id: 'description', label: 'Description' },
                   { id: 'specifications', label: 'Specifications' },
@@ -526,9 +494,7 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                     className={`pb-4 text-xs sm:text-sm font-bold uppercase tracking-wider transition-colors relative whitespace-nowrap ${
                       activeTab === tab.id
                         ? 'text-[#e51b24]'
-                        : isLight
-                        ? 'text-gray-500 hover:text-gray-900'
-                        : 'text-gray-400 hover:text-white'
+                        : 'text-gray-500 hover:text-gray-900'
                     }`}
                   >
                     {tab.label}
@@ -542,39 +508,41 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
             {/* Tab Contents */}
             <div className="py-8">
               {activeTab === 'description' && (
-                <div className={`space-y-4 max-w-4xl text-sm leading-relaxed ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
-                  <p>{product.description}</p>
-                  <h4 className={`text-base font-bold uppercase tracking-wide pt-4 ${isLight ? 'text-gray-900' : 'text-white'}`}>
-                    Key Highlights
-                  </h4>
-                  <ul className="space-y-2">
-                    {product.features?.map((f, i) => (
-                      <li key={i} className="flex items-start gap-2.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#e51b24] mt-2 shrink-0" />
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
+                <div className="space-y-4 max-w-4xl text-sm leading-relaxed text-gray-700">
+                  <p>{currentProduct.description || currentProduct.short_description}</p>
+                  {currentProduct.features && currentProduct.features.length > 0 && (
+                    <>
+                      <h4 className="text-base font-bold uppercase tracking-wide pt-4 text-gray-900">
+                        Key Highlights
+                      </h4>
+                      <ul className="space-y-2">
+                        {currentProduct.features.map((f, i) => (
+                          <li key={i} className="flex items-start gap-2.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#e51b24] mt-2 shrink-0" />
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
                 </div>
               )}
 
               {activeTab === 'specifications' && (
                 <div className="max-w-3xl">
-                  <table className="w-full text-xs sm:text-sm border-collapse">
+                  <table className="w-full text-xs sm:text-sm border-collapse rounded-xl overflow-hidden border border-gray-200">
                     <tbody>
-                      {Object.entries(product.specifications || {}).map(([key, val], idx) => (
+                      {Object.entries(specs).map(([key, val], idx) => (
                         <tr
                           key={key}
-                          className={`border-b ${
-                            isLight
-                              ? idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'
-                              : idx % 2 === 0 ? 'bg-[#12151c]' : 'bg-transparent'
-                          } ${isLight ? 'border-gray-200' : 'border-[#1f2533]'}`}
+                          className={`border-b border-gray-200 ${
+                            idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'
+                          }`}
                         >
-                          <td className="py-3 px-4 font-bold text-gray-400 w-1/3 uppercase tracking-wider text-xs">
+                          <td className="py-3 px-4 font-bold text-gray-500 w-1/3 uppercase tracking-wider text-xs">
                             {key}
                           </td>
-                          <td className={`py-3 px-4 font-medium ${isLight ? 'text-gray-800' : 'text-white'}`}>
+                          <td className="py-3 px-4 font-semibold text-gray-900">
                             {val}
                           </td>
                         </tr>
@@ -586,18 +554,14 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
 
               {activeTab === 'compatibility' && (
                 <div className="max-w-3xl space-y-4">
-                  <p className={`text-sm ${isLight ? 'text-gray-600' : 'text-gray-300'}`}>
+                  <p className="text-sm text-gray-600">
                     This accessory is precision designed and test-fitted on the following vehicle chassis:
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {product.compatibility_models?.map((model) => (
+                    {compatibilityList.map((model) => (
                       <div
                         key={model}
-                        className={`p-3 rounded-lg border flex items-center gap-2.5 text-xs font-semibold ${
-                          isLight
-                            ? 'bg-gray-50 border-gray-200 text-gray-800'
-                            : 'bg-[#12151c] border-[#222838] text-white'
-                        }`}
+                        className="p-3 rounded-lg border flex items-center gap-2.5 text-xs font-semibold bg-gray-50 border-gray-200 text-gray-800"
                       >
                         <CheckCircle2 className="w-4 h-4 text-[#e51b24]" />
                         <span>{model}</span>
@@ -608,22 +572,17 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
               )}
 
               {activeTab === 'installation' && (
-                <div className={`max-w-3xl text-sm leading-relaxed space-y-3 ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
-                  <p>{product.installation_info || 'Comprehensive 1:1 scale cutting template and all mounting brackets are included in the packaging.'}</p>
-                  <p className="text-xs text-gray-500">
+                <div className="max-w-3xl text-sm leading-relaxed space-y-3 text-gray-700">
+                  <p>{installationText}</p>
+                  <p className="text-xs text-gray-500 font-medium">
                     Need professional fitment? WhatsApp our technical team to locate a Bull Gear verified fitment workshop near your city.
                   </p>
                 </div>
               )}
 
               {activeTab === 'delivery' && (
-                <div className={`max-w-3xl text-sm leading-relaxed space-y-3 ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
-                  <p>
-                    <strong>Dispatches within 24–48 hours:</strong> All orders are carefully packed in wooden/heavy-corrugated protective crates to prevent transit damages.
-                  </p>
-                  <p>
-                    <strong>Returns:</strong> 7-day hassle-free replacement or return on undamaged items in original packaging.
-                  </p>
+                <div className="max-w-3xl text-sm leading-relaxed space-y-3 text-gray-700">
+                  <p>{deliveryText}</p>
                 </div>
               )}
             </div>
@@ -640,7 +599,7 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
 
       {/* WhatsApp Direct Order Modal */}
       <WhatsAppOrderModal
-        product={product}
+        product={currentProduct}
         isOpen={isWhatsAppOpen}
         onClose={() => setIsWhatsAppOpen(false)}
         initialQuantity={quantity}

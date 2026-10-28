@@ -132,19 +132,7 @@ export function Footer() {
             </div>
 
             {/* Built for Adventure Emblem */}
-            <div className="mt-4 p-3 rounded-lg bg-[#11141c] border border-[#202634] flex items-center gap-3">
-              <div className="p-2 rounded-md bg-[#e51b24]/20 text-[#e51b24]">
-                <Compass className="w-5 h-5 animate-spin-slow" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-white uppercase tracking-wider">
-                  Built for Adventure
-                </p>
-                <p className="text-[11px] text-gray-400">
-                  Tested in Thar Desert & Himalayas
-                </p>
-              </div>
-            </div>
+            
           </div>
 
         </div>

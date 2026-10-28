@@ -51,7 +51,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
       <main className="flex-1 pb-20">
         {/* Category Hero Banner */}
-        <div className="relative py-14 sm:py-20 bg-[#f8fafc] border-b border-gray-200">
+        <div className="relative py-14 sm:py-10 ">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <Link
               href="/shop"
@@ -62,7 +62,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
             </Link>
 
             <div className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-widest text-[#e51b24] mb-2">
-              <Flame className="w-4 h-4" />
+             
               <span>Bull Gear Collection</span>
             </div>
 
