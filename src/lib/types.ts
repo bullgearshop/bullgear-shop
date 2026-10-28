@@ -50,7 +50,9 @@ export interface Product {
   low_stock_threshold: number;
   stock_status: StockStatus;
   is_featured: boolean;
+  featured_order?: number;
   is_best_seller: boolean;
+  best_seller_order?: number;
   is_published: boolean;
   compatibility_models: string[];
   specifications: Record<string, string>;

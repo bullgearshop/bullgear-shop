@@ -33,6 +33,60 @@ export function ShopCatalog({
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Products state (hydrated with live updates from admin/API)
+  const [productsList, setProductsList] = useState<Product[]>(allProducts);
+
+  // Sync with live API and localStorage so admin uploaded images appear immediately
+  useEffect(() => {
+    // 1. Check localStorage first for instant display of recent admin edits
+    try {
+      const saved = localStorage.getItem('bullgear_admin_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setProductsList(parsed);
+        }
+      }
+    } catch {}
+
+    // 2. Fetch latest from API
+    const fetchLatest = () => {
+      fetch('/api/products')
+        .then((res) => res.json())
+        .then((resData) => {
+          if (resData.success && Array.isArray(resData.data) && resData.data.length > 0) {
+            setProductsList(resData.data);
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchLatest();
+
+    // 3. Listen to live updates from admin edits
+    const handleUpdate = () => {
+      try {
+        const saved = localStorage.getItem('bullgear_admin_products');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setProductsList(parsed);
+            return;
+          }
+        }
+      } catch {}
+      fetchLatest();
+    };
+
+    window.addEventListener('bullgear_products_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener('bullgear_products_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
   // Active filters
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory || '');
   const [sortBy, setSortBy] = useState<SortOption>('featured');
@@ -54,21 +108,23 @@ export function ShopCatalog({
   // Compute category counts
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const p of allProducts) {
+    for (const p of productsList) {
       if (p.category_slug) {
         counts[p.category_slug] = (counts[p.category_slug] || 0) + 1;
       }
     }
     return counts;
-  }, [allProducts]);
+  }, [productsList]);
 
   // Filter and sort products
   const filteredProducts = useMemo(() => {
-    let result = [...allProducts];
+    let result = [...productsList];
 
     // Filter by Category
     if (selectedCategory) {
-      result = result.filter((p) => p.category_slug === selectedCategory);
+      result = result.filter(
+        (p) => p.category_slug === selectedCategory || p.category_id === selectedCategory
+      );
     }
 
     // Filter by Search Query
@@ -79,17 +135,17 @@ export function ShopCatalog({
           p.name.toLowerCase().includes(q) ||
           p.description?.toLowerCase().includes(q) ||
           p.category_name?.toLowerCase().includes(q) ||
-          p.compatibility_models?.some((m) => m.toLowerCase().includes(q))
+          p.compatibility_models?.some((m: string) => m.toLowerCase().includes(q))
       );
     }
 
     // Sort
     switch (sortBy) {
       case 'price_asc':
-        result.sort((a, b) => a.base_price - b.base_price);
+        result.sort((a, b) => (a.sale_price ?? a.price) - (b.sale_price ?? b.price));
         break;
       case 'price_desc':
-        result.sort((a, b) => b.base_price - a.base_price);
+        result.sort((a, b) => (b.sale_price ?? b.price) - (a.sale_price ?? a.price));
         break;
       case 'newest':
         result.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
@@ -110,7 +166,7 @@ export function ShopCatalog({
     }
 
     return result;
-  }, [allProducts, selectedCategory, searchQuery, sortBy]);
+  }, [productsList, selectedCategory, searchQuery, sortBy]);
 
   const updateUrl = (cat: string, sort: SortOption) => {
     const params = new URLSearchParams();

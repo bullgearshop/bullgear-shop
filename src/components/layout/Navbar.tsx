@@ -8,6 +8,7 @@ import { Search, ShoppingBag, Menu, X, PhoneCall } from 'lucide-react';
 import { Logo } from '../common/Logo';
 import { useCart } from '@/lib/cart-context';
 import { DEFAULT_PRODUCTS } from '@/lib/db';
+import { Product } from '@/lib/types';
 import { formatRupees } from '@/lib/whatsapp';
 
 interface NavbarProps {
@@ -37,16 +38,65 @@ export function Navbar({ theme = 'light' }: NavbarProps) {
     { label: 'Contact', href: '/contact' },
   ];
 
+  const [productsList, setProductsList] = useState<Product[]>(DEFAULT_PRODUCTS);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('bullgear_admin_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setProductsList(parsed);
+        }
+      }
+    } catch {}
+
+    const fetchLatest = () => {
+      fetch('/api/products')
+        .then((res) => res.json())
+        .then((resData) => {
+          if (resData.success && Array.isArray(resData.data) && resData.data.length > 0) {
+            setProductsList(resData.data);
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchLatest();
+
+    const handleUpdate = () => {
+      try {
+        const saved = localStorage.getItem('bullgear_admin_products');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setProductsList(parsed);
+            return;
+          }
+        }
+      } catch {}
+      fetchLatest();
+    };
+
+    window.addEventListener('bullgear_products_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener('bullgear_products_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
   // Live search suggestions
   const filteredSuggestions = searchQuery.trim().length >= 1
-    ? DEFAULT_PRODUCTS.filter(
+    ? productsList.filter(
         (p) =>
           p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (p.category_name && p.category_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-          p.compatibility_models?.some((m) => m.toLowerCase().includes(searchQuery.toLowerCase()))
+          p.compatibility_models?.some((m: string) => m.toLowerCase().includes(searchQuery.toLowerCase()))
       ).slice(0, 8)
-    : DEFAULT_PRODUCTS.slice(0, 5);
+    : productsList.slice(0, 5);
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -380,12 +430,18 @@ export function Navbar({ theme = 'light' }: NavbarProps) {
                     className="p-2.5 sm:p-3 flex items-center gap-2.5 sm:gap-3.5 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors group"
                   >
                     <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-gray-50 border border-gray-200 shrink-0 overflow-hidden">
-                      <Image
-                        src={prod.images?.[0]?.image_url || '/images/product-snorkel.jpg'}
-                        alt={prod.name}
-                        fill
-                        className="object-cover"
-                      />
+                      {prod.images?.[0]?.image_url ? (
+                        <Image
+                          src={prod.images[0].image_url}
+                          alt={prod.name}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[8px] text-gray-400 font-bold uppercase text-center p-1">
+                          {prod.name}
+                        </div>
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 overflow-hidden">

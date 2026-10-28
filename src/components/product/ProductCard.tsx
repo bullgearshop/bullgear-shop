@@ -26,8 +26,10 @@ export function ProductCard({
 
   const primaryImage = product.images?.[0]?.image_url;
   const displayPrice = product.sale_price ?? product.price;
-  const isOutOfStock = product.stock_status === 'out_of_stock';
-  const isLimitedStock = product.stock_status === 'limited_stock';
+
+  const stockQty = typeof product.stock_quantity === 'number' ? product.stock_quantity : parseInt(product.stock_quantity as any, 10);
+  const isOutOfStock = product.stock_status === 'out_of_stock' || (!isNaN(stockQty) && stockQty <= 0);
+  const isLimitedStock = !isOutOfStock && (product.stock_status === 'limited_stock' || (!isNaN(stockQty) && stockQty > 0 && stockQty <= (product.low_stock_threshold || 5)));
 
   const isCompact = variant === 'compact';
   const shouldShowWhatsApp = showWhatsAppButton !== undefined ? showWhatsAppButton : !isCompact;
@@ -44,21 +46,22 @@ export function ProductCard({
   const handleOpenWhatsApp = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isOutOfStock) return;
     setIsWhatsAppOpen(true);
   };
 
   return (
     <>
       <div className="group relative flex flex-col justify-between rounded-lg bg-white border border-gray-200/90 hover:border-gray-300 hover:shadow-md transition-all duration-300 overflow-hidden shadow-xs h-full">
-        {/* Stock Badges (No Favorite Heart Icon) */}
-        {isLimitedStock && (
-          <span className="absolute top-2 left-2 z-20 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 shadow-xs">
-            Limited Stock
+        {/* Stock Badges */}
+        {isOutOfStock && (
+          <span className="absolute top-2 left-2 z-20 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#e51b24] text-white shadow-xs">
+            Out of Stock
           </span>
         )}
-        {isOutOfStock && (
-          <span className="absolute top-2 left-2 z-20 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200 shadow-xs">
-            Out of Stock
+        {isLimitedStock && (
+          <span className="absolute top-2 left-2 z-20 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 shadow-xs">
+            Limited Stock {!isNaN(stockQty) && stockQty > 0 ? `(${stockQty} left)` : ''}
           </span>
         )}
 
@@ -140,18 +143,29 @@ export function ProductCard({
           </div>
         </Link>
 
-        {/* Bottom WhatsApp Green Button (Compact single-line 32-36px height) */}
+        {/* Bottom WhatsApp Button or Out of Stock Red Button */}
         {shouldShowWhatsApp && (
           <div className="px-2.5 pb-2.5 sm:px-3 sm:pb-3">
-            <button
-              type="button"
-              onClick={handleOpenWhatsApp}
-              className="w-full h-8 sm:h-9 px-2 rounded-md bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-[10px] sm:text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer active:scale-98 whitespace-nowrap overflow-hidden"
-              aria-label="Order via WhatsApp"
-            >
-              <MessageSquare className="w-3.5 h-3.5 fill-white flex-shrink-0" />
-              <span className="truncate">ORDER VIA WHATSAPP</span>
-            </button>
+            {isOutOfStock ? (
+              <button
+                type="button"
+                disabled
+                className="w-full h-8 sm:h-9 px-2 rounded-md bg-[#e51b24] text-white font-extrabold text-[10px] sm:text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-xs cursor-not-allowed whitespace-nowrap overflow-hidden select-none"
+                aria-label="Out of Stock"
+              >
+                <span>OUT OF STOCK</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleOpenWhatsApp}
+                className="w-full h-8 sm:h-9 px-2 rounded-md bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-[10px] sm:text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer active:scale-98 whitespace-nowrap overflow-hidden"
+                aria-label="Order via WhatsApp"
+              >
+                <MessageSquare className="w-3.5 h-3.5 fill-white flex-shrink-0" />
+                <span className="truncate">ORDER VIA WHATSAPP</span>
+              </button>
+            )}
           </div>
         )}
       </div>

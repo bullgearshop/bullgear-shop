@@ -6,26 +6,20 @@ import { Plus, Edit2, Trash2, X, Monitor, Smartphone, AlertCircle, CheckCircle }
 import { Banner } from '@/lib/types';
 import { DEFAULT_BANNERS } from '@/lib/db';
 import { SingleImageUpload } from '@/components/admin/SingleImageUpload';
+import { ConfirmDeleteModal } from '@/components/admin/ConfirmDeleteModal';
 
 const MAX_BANNERS = 3;
-
-const DESKTOP_PRESET_IMAGES = [
-  { label: 'Off-Road SUV (Thar)', url: '/images/hero-suv.jpg' },
-  { label: 'Mountain Expedition', url: '/images/adventure-banner.jpg' },
-  { label: 'River Crossing Trail', url: '/images/gallery-1.jpg' },
-];
-
-const MOBILE_PRESET_IMAGES = [
-  { label: 'Trail Rig Portrait', url: '/images/gallery-2.jpg' },
-  { label: 'Dunes Action Portrait', url: '/images/gallery-3.jpg' },
-  { label: 'Overland Camp Portrait', url: '/images/gallery-5.jpg' },
-  { label: 'Off-Road SUV (Crop)', url: '/images/hero-suv.jpg' },
-];
 
 export default function AdminBannersPage() {
   const [banners, setBanners] = useState<Banner[]>(DEFAULT_BANNERS);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Custom Delete Modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [bannerToDelete, setBannerToDelete] = useState<Banner | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Form states
   const [formTitle, setFormTitle] = useState('');
@@ -37,20 +31,33 @@ export default function AdminBannersPage() {
   const [formButtonLink, setFormButtonLink] = useState('/shop');
   const [formIsActive, setFormIsActive] = useState(true);
 
-  // Load from localStorage if present
-  useEffect(() => {
-    const saved = localStorage.getItem('bullgear_admin_banners');
-    if (saved) {
-      try {
+  // Load from localStorage and live API
+  const loadBanners = () => {
+    try {
+      const saved = localStorage.getItem('bullgear_admin_banners');
+      if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Limit to MAX_BANNERS (3)
           setBanners(parsed.slice(0, MAX_BANNERS));
         }
-      } catch {
-        // Fall back to default
       }
-    }
+    } catch {}
+
+    fetch('/api/banners')
+      .then((res) => res.json())
+      .then((resData) => {
+        if (resData.success && Array.isArray(resData.data) && resData.data.length > 0) {
+          setBanners(resData.data.slice(0, MAX_BANNERS));
+          try {
+            localStorage.setItem('bullgear_admin_banners', JSON.stringify(resData.data.slice(0, MAX_BANNERS)));
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadBanners();
   }, []);
 
   const saveToStorage = (updated: Banner[]) => {
@@ -58,16 +65,31 @@ export default function AdminBannersPage() {
     setBanners(capped);
     try {
       localStorage.setItem('bullgear_admin_banners', JSON.stringify(capped));
-    } catch {
-      // Ignore
-    }
+      window.dispatchEvent(new Event('bullgear_banners_updated'));
+    } catch {}
   };
 
-  const toggleActive = (id: string) => {
+  const toggleActive = async (id: string) => {
+    const target = banners.find((b) => b.id === id);
+    if (!target) return;
+    const nextActive = !target.is_active;
     const updated = banners.map((b) =>
-      b.id === id ? { ...b, is_active: !b.is_active } : b
+      b.id === id ? { ...b, is_active: nextActive } : b
     );
     saveToStorage(updated);
+
+    try {
+      await fetch('/api/banners', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...target,
+          is_active: nextActive,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to update banner status in API:', err);
+    }
   };
 
   const handleOpenAdd = () => {
@@ -92,64 +114,105 @@ export default function AdminBannersPage() {
     setFormTitle(b.title);
     setFormHighlight(b.highlight_text);
     setFormSubtitle(b.subtitle);
-    setFormDesktopImage(b.desktop_image_url || '/images/hero-suv.jpg');
-    setFormMobileImage(b.mobile_image_url || '/images/gallery-2.jpg');
+    setFormDesktopImage(b.desktop_image_url || '');
+    setFormMobileImage(b.mobile_image_url || '');
     setFormButtonLabel(b.button_label || 'Shop Products');
     setFormButtonLink(b.button_link || '/shop');
     setFormIsActive(b.is_active ?? true);
     setModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDeleteClick = (b: Banner) => {
     if (banners.length <= 1) {
       alert('At least one hero banner must be kept.');
       return;
     }
-    if (confirm('Are you sure you want to delete this hero banner?')) {
-      const updated = banners.filter((b) => b.id !== id);
-      saveToStorage(updated);
+    setBannerToDelete(b);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!bannerToDelete) return;
+    setIsDeleting(true);
+    const id = bannerToDelete.id;
+    const updated = banners.filter((b) => b.id !== id);
+    saveToStorage(updated);
+
+    try {
+      await fetch(`/api/banners?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.error('Failed to delete banner from database:', err);
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
+      setBannerToDelete(null);
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingBanner) {
-      const updated = banners.map((b) =>
-        b.id === editingBanner.id
-          ? {
-              ...b,
-              title: formTitle,
-              highlight_text: formHighlight,
-              subtitle: formSubtitle,
-              desktop_image_url: formDesktopImage,
-              mobile_image_url: formMobileImage || formDesktopImage,
-              button_label: formButtonLabel,
-              button_link: formButtonLink,
-              is_active: formIsActive,
-            }
-          : b
-      );
-      saveToStorage(updated);
-    } else {
-      if (banners.length >= MAX_BANNERS) {
-        alert(`Cannot add more than ${MAX_BANNERS} banners.`);
-        return;
+    setIsSaving(true);
+
+    try {
+      if (editingBanner) {
+        const payload: any = {
+          ...editingBanner,
+          title: formTitle,
+          highlight_text: formHighlight,
+          subtitle: formSubtitle,
+          desktop_image_url: formDesktopImage,
+          mobile_image_url: formMobileImage || formDesktopImage,
+          button_label: formButtonLabel,
+          button_link: formButtonLink,
+          is_active: formIsActive,
+        };
+
+        const updated = banners.map((b) => (b.id === editingBanner.id ? payload : b));
+        saveToStorage(updated);
+
+        await fetch('/api/banners', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        if (banners.length >= MAX_BANNERS) {
+          alert(`Cannot add more than ${MAX_BANNERS} banners.`);
+          return;
+        }
+        const newBanner: Banner = {
+          id: `ban-${Date.now()}`,
+          title: formTitle,
+          highlight_text: formHighlight,
+          subtitle: formSubtitle,
+          desktop_image_url: formDesktopImage,
+          mobile_image_url: formMobileImage || formDesktopImage,
+          button_label: formButtonLabel,
+          button_link: formButtonLink,
+          display_order: banners.length + 1,
+          is_active: formIsActive,
+        };
+
+        const res = await fetch('/api/banners', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newBanner),
+        });
+        const resData = await res.json();
+        if (resData.success && resData.data?.id) {
+          newBanner.id = resData.data.id;
+        }
+
+        saveToStorage([...banners, newBanner]);
       }
-      const newBanner: Banner = {
-        id: `ban-${Date.now()}`,
-        title: formTitle,
-        highlight_text: formHighlight,
-        subtitle: formSubtitle,
-        desktop_image_url: formDesktopImage,
-        mobile_image_url: formMobileImage || formDesktopImage,
-        button_label: formButtonLabel,
-        button_link: formButtonLink,
-        display_order: banners.length + 1,
-        is_active: formIsActive,
-      };
-      saveToStorage([...banners, newBanner]);
+      setModalOpen(false);
+    } catch (err) {
+      console.error('Error saving banner:', err);
+    } finally {
+      setIsSaving(false);
     }
-    setModalOpen(false);
   };
 
   const isLimitReached = banners.length >= MAX_BANNERS;
@@ -231,12 +294,18 @@ export default function AdminBannersPage() {
                     <span>Desktop (16:9)</span>
                   </div>
                   <div className="relative aspect-[16/9] w-full rounded overflow-hidden bg-gray-900 border border-gray-700">
-                    <Image
-                      src={b.desktop_image_url || '/images/hero-suv.jpg'}
-                      alt={b.title}
-                      fill
-                      className="object-cover"
-                    />
+                    {b.desktop_image_url ? (
+                      <Image
+                        src={b.desktop_image_url}
+                        alt={b.title}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-500 font-bold bg-gray-950">
+                        No 16:9 Image
+                      </div>
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-2 flex flex-col justify-end">
                       <h4 className="text-[11px] font-extrabold uppercase text-white leading-tight line-clamp-1">
                         {b.title} <span className="text-[#e51b24]">{b.highlight_text}</span>
@@ -252,12 +321,18 @@ export default function AdminBannersPage() {
                     <span>Mobile (9:16)</span>
                   </div>
                   <div className="relative aspect-[9/16] w-full rounded overflow-hidden bg-gray-900 border border-gray-700">
-                    <Image
-                      src={b.mobile_image_url || b.desktop_image_url || '/images/gallery-2.jpg'}
-                      alt={`${b.title} Mobile`}
-                      fill
-                      className="object-cover"
-                    />
+                    {b.mobile_image_url || b.desktop_image_url ? (
+                      <Image
+                        src={b.mobile_image_url || b.desktop_image_url}
+                        alt={`${b.title} Mobile`}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[9px] text-gray-500 font-bold bg-gray-950 text-center p-1">
+                        No 9:16 Image
+                      </div>
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent p-1.5 flex flex-col justify-end">
                       <span className="text-[9px] font-bold text-white uppercase line-clamp-1">
                         {b.title}
@@ -277,7 +352,7 @@ export default function AdminBannersPage() {
                 <p className="text-xs text-gray-500 line-clamp-2">{b.subtitle}</p>
                 <div className="pt-1 text-[11px] space-y-0.5 text-gray-500">
                   <p>CTA: <strong className="text-gray-900">{b.button_label}</strong> → <span className="text-[#e51b24]">{b.button_link}</span></p>
-                  <p className="truncate text-gray-400">Desktop: {b.desktop_image_url}</p>
+                  <p className="truncate text-gray-400">Desktop: {b.desktop_image_url || 'None'}</p>
                   <p className="truncate text-gray-400">Mobile: {b.mobile_image_url || 'Same as desktop'}</p>
                 </div>
               </div>
@@ -307,7 +382,7 @@ export default function AdminBannersPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDelete(b.id)}
+                    onClick={() => handleDeleteClick(b)}
                     className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition cursor-pointer"
                     title="Delete banner"
                   >
@@ -344,133 +419,24 @@ export default function AdminBannersPage() {
 
             <form onSubmit={handleSave} className="mt-4 space-y-5 text-xs">
               
-              {/* DEDICATED SECTION 1: DESKTOP HERO BANNER IMAGE (16:9 RATIO) */}
-              <div className="p-4 rounded-lg bg-gray-50 border border-gray-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-gray-900 font-bold text-xs uppercase">
-                    <Monitor className="w-4 h-4 text-[#e51b24]" />
-                    <span>Desktop Hero Image (16:9 Ratio)</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded bg-gray-200 text-gray-700 text-[10px] font-bold">
-                    Recommended: 1920 × 1080 (16:9)
-                  </span>
-                </div>
-
-                {/* 16:9 Live Preview */}
-                <div className="relative aspect-[16/9] w-full rounded-md overflow-hidden bg-gray-900 border border-gray-300 shadow-inner">
-                  <Image
-                    src={formDesktopImage || '/images/hero-suv.jpg'}
-                    alt="Desktop Preview"
-                    fill
-                    className="object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-3 sm:p-4 flex flex-col justify-end">
-                    <span className="text-[10px] font-mono text-[#e51b24] font-bold tracking-wider">
-                      DESKTOP 16:9 PREVIEW
-                    </span>
-                    <h4 className="text-white font-extrabold text-sm sm:text-base uppercase tracking-tight">
-                      {formTitle || 'TITLE'} <span className="text-[#e51b24]">{formHighlight || 'HIGHLIGHT'}</span>
-                    </h4>
-                  </div>
-                </div>
-
-                {/* Preset Options for Desktop */}
-                <div>
-                  <span className="block text-[11px] font-semibold text-gray-600 mb-1.5">
-                    Quick Presets (16:9 Landscape):
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {DESKTOP_PRESET_IMAGES.map((preset) => (
-                      <button
-                        key={preset.url}
-                        type="button"
-                        onClick={() => setFormDesktopImage(preset.url)}
-                        className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition cursor-pointer ${
-                          formDesktopImage === preset.url
-                            ? 'bg-[#e51b24] text-white border-[#e51b24] shadow-xs'
-                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
+              {/* SECTION 1: DESKTOP HERO BANNER IMAGE (16:9 RATIO) */}
+              <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
                 <SingleImageUpload
-                  label="Desktop Banner Image (16:9)"
+                  label="Desktop Hero Image (16:9 Landscape)"
                   value={formDesktopImage}
                   onChange={setFormDesktopImage}
-                  helperText="Upload landscape banner for desktop & tablet screens"
+                  helperText="Upload landscape banner for desktop & tablet screens (Recommended: 1920 × 1080)"
                   aspectRatioHint="16:9 Landscape"
                 />
               </div>
 
-              {/* DEDICATED SECTION 2: MOBILE HERO BANNER IMAGE (9:16 RATIO) */}
-              <div className="p-4 rounded-lg bg-gray-50 border border-gray-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-gray-900 font-bold text-xs uppercase">
-                    <Smartphone className="w-4 h-4 text-emerald-600" />
-                    <span>Mobile Hero Image (9:16 Ratio)</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200">
-                    Recommended: 1080 × 1920 (9:16 Portrait)
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                  {/* 9:16 Live Phone Mockup Preview */}
-                  <div className="flex justify-center sm:justify-start">
-                    <div className="relative w-36 aspect-[9/16] rounded-xl overflow-hidden bg-gray-900 border-2 border-gray-700 shadow-md">
-                      <Image
-                        src={formMobileImage || formDesktopImage || '/images/gallery-2.jpg'}
-                        alt="Mobile Preview"
-                        fill
-                        className="object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-2.5 flex flex-col justify-end">
-                        <span className="text-[9px] font-mono text-[#e51b24] font-bold">
-                          MOBILE 9:16
-                        </span>
-                        <h5 className="text-white font-extrabold text-[11px] uppercase leading-tight line-clamp-2">
-                          {formTitle || 'TITLE'} <span className="text-[#e51b24]">{formHighlight || 'HIGHLIGHT'}</span>
-                        </h5>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Preset Options & Description */}
-                  <div className="space-y-2">
-                    <span className="block text-[11px] font-semibold text-gray-600">
-                      Quick Presets (9:16 Portrait):
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {MOBILE_PRESET_IMAGES.map((preset) => (
-                        <button
-                          key={preset.url}
-                          type="button"
-                          onClick={() => setFormMobileImage(preset.url)}
-                          className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition cursor-pointer ${
-                            formMobileImage === preset.url
-                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                          }`}
-                        >
-                          {preset.label}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="text-[11px] text-gray-500 pt-1 leading-relaxed">
-                      Displayed exclusively on mobile screens (&lt;640px) to prevent side-cropping and ensure sharp vertical display.
-                    </p>
-                  </div>
-                </div>
-
+              {/* SECTION 2: MOBILE HERO BANNER IMAGE (9:16 RATIO) */}
+              <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
                 <SingleImageUpload
-                  label="Mobile Hero Image (9:16)"
+                  label="Mobile Hero Image (9:16 Portrait)"
                   value={formMobileImage}
                   onChange={setFormMobileImage}
-                  helperText="Upload vertical photo for mobile screens"
+                  helperText="Upload vertical photo for mobile screens (Recommended: 1080 × 1920)"
                   aspectRatioHint="9:16 Portrait"
                 />
               </div>
@@ -586,6 +552,23 @@ export default function AdminBannersPage() {
           </div>
         </div>
       )}
+
+      {/* Bull Gear Centered Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={deleteModalOpen}
+        title="Delete Hero Banner"
+        itemName={bannerToDelete ? `${bannerToDelete.title} ${bannerToDelete.highlight_text}` : undefined}
+        message="Are you sure you want to delete this hero banner? It will be permanently removed from the website homepage."
+        confirmText="Delete Banner"
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onClose={() => {
+          if (!isDeleting) {
+            setDeleteModalOpen(false);
+            setBannerToDelete(null);
+          }
+        }}
+      />
     </div>
   );
 }

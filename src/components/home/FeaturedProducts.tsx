@@ -11,20 +11,64 @@ interface FeaturedProductsProps {
 }
 
 export function FeaturedProducts({ products }: FeaturedProductsProps) {
-  const [activeProducts, setActiveProducts] = useState<Product[]>(products);
+  const formatFeatured = (list: Product[]) => {
+    const featured = list.filter((p) => p.is_featured);
+    featured.sort((a, b) => (a.featured_order ?? 99) - (b.featured_order ?? 99));
+    if (featured.length >= 4) return featured.slice(0, 4);
+    const others = list.filter((p) => !p.is_featured);
+    return [...featured, ...others].slice(0, 4);
+  };
+
+  const [activeProducts, setActiveProducts] = useState<Product[]>(() => formatFeatured(products));
 
   useEffect(() => {
+    // 1. Check localStorage first
     try {
       const saved = localStorage.getItem('bullgear_admin_products');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setActiveProducts(parsed);
+          setActiveProducts(formatFeatured(parsed));
         }
       }
-    } catch {
-      // Ignore
-    }
+    } catch {}
+
+    // 2. Fetch fresh products from API
+    const fetchLatest = () => {
+      fetch('/api/products')
+        .then((res) => res.json())
+        .then((resData) => {
+          if (resData.success && Array.isArray(resData.data) && resData.data.length > 0) {
+            setActiveProducts(formatFeatured(resData.data));
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchLatest();
+
+    // 3. Listen to admin updates
+    const handleUpdate = () => {
+      try {
+        const saved = localStorage.getItem('bullgear_admin_products');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setActiveProducts(formatFeatured(parsed));
+            return;
+          }
+        }
+      } catch {}
+      fetchLatest();
+    };
+
+    window.addEventListener('bullgear_products_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener('bullgear_products_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, []);
 
   const displayProducts = activeProducts.slice(0, 4);

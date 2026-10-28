@@ -143,13 +143,19 @@ export function CartDrawer() {
                   key={`${product.id}-${item.selected_model}`}
                   className="flex gap-3.5 p-3.5 rounded-xl bg-[#131620] border border-[#202636]"
                 >
-                  <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-[#0c0e14] shrink-0 border border-[#1b202c]">
-                    <Image
-                      src={product.images?.[0]?.image_url || '/images/product-snorkel.jpg'}
-                      alt={product.name}
-                      fill
-                      className="object-contain p-1.5"
-                    />
+                  <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
+                    {product.images?.[0]?.image_url ? (
+                      <Image
+                        src={product.images[0].image_url}
+                        alt={product.name}
+                        fill
+                        className="object-contain p-1.5"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[9px] text-gray-400 font-bold uppercase text-center p-1">
+                        {product.name}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex-1 flex flex-col justify-between">
