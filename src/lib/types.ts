@@ -55,6 +55,7 @@ export interface Product {
   compatibility_models: string[];
   specifications: Record<string, string>;
   installation_info?: string;
+  delivery_returns_info?: string;
   features: string[];
   images: ProductImage[];
   seo_title?: string;
