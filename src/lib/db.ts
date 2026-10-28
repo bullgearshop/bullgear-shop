@@ -880,10 +880,13 @@ export async function updateCategory(id: string, updates: Partial<Category>): Pr
 }
 
 export async function deleteCategory(id: string): Promise<boolean> {
-  // Check if products exist in category
-  const hasProducts = memoryProducts.some((p) => p.category_id === id);
-  if (hasProducts) {
-    throw new Error('Cannot delete category with associated products. Reassign or delete products first.');
+  if (isSupabaseConfigured && supabase) {
+    try {
+      await supabase.from('products').update({ category_id: null }).eq('category_id', id);
+      await supabase.from('categories').delete().eq('id', id);
+    } catch (err) {
+      console.error('Supabase category deletion error:', err);
+    }
   }
   memoryCategories = memoryCategories.filter((c) => c.id !== id);
   return true;

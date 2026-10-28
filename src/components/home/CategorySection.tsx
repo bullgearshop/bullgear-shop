@@ -14,6 +14,7 @@ export function CategorySection({ categories }: CategorySectionProps) {
   const [activeCategories, setActiveCategories] = useState<Category[]>(categories);
 
   useEffect(() => {
+    // Check localStorage first
     try {
       const saved = localStorage.getItem('bullgear_admin_categories');
       if (saved) {
@@ -22,13 +23,26 @@ export function CategorySection({ categories }: CategorySectionProps) {
           setActiveCategories(parsed);
         }
       }
-    } catch {
-      // Ignore
-    }
+    } catch {}
+
+    // Fetch dynamic categories from API
+    fetch('/api/categories')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setActiveCategories(data.data);
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  // Only 4 categories displayed (2 per page = exactly 2 dots)
-  const displayCategories = activeCategories.slice(0, 4);
+  // Filter by ticked (is_featured === true). If fewer than 4 are ticked, pick the ticked then fill with active.
+  const featured = activeCategories.filter((c) => c.is_featured);
+  const displayCategories = (
+    featured.length > 0
+      ? featured
+      : activeCategories
+  ).slice(0, 4);
 
   const sectionRef = useRef<HTMLElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -63,7 +77,7 @@ export function CategorySection({ categories }: CategorySectionProps) {
     }
   };
 
-  // Track visibility with ref to completely prevent re-renders, jitter, and shuttering
+  // Track visibility with ref to prevent re-renders
   useEffect(() => {
     const el = sectionRef.current;
     if (!el) return;
@@ -80,14 +94,12 @@ export function CategorySection({ categories }: CategorySectionProps) {
     return () => observer.disconnect();
   }, []);
 
-  // Auto-move on mobile every 4 seconds strictly when visible in viewport
+  // Auto-move on mobile every 4 seconds when visible
   useEffect(() => {
     if (totalPages <= 1) return;
 
     const interval = setInterval(() => {
-      // Pause if not visible or user is hovering/touching
       if (!isVisibleRef.current || isInteracting.current) return;
-
       const next = (currentIndexRef.current + 1) % totalPages;
       scrollToPage(next);
     }, 4000);
@@ -117,7 +129,7 @@ export function CategorySection({ categories }: CategorySectionProps) {
           </Link>
         </div>
 
-        {/* Mobile View: 2 Cards Visible at a time (4 total, 2 dots) */}
+        {/* Mobile View: 2 Cards Visible at a time (4 total, exactly 2 dots) */}
         <div
           className="md:hidden"
           onMouseEnter={() => { isInteracting.current = true; }}
@@ -137,35 +149,32 @@ export function CategorySection({ categories }: CategorySectionProps) {
               <div key={cat.id} className="w-[calc(50%-6px)] flex-shrink-0 snap-start">
                 <Link
                   href={`/categories/${cat.slug}`}
-                  className="group relative aspect-[16/11] sm:aspect-auto sm:h-64 lg:h-72 w-full rounded-lg overflow-hidden border border-gray-200/90 shadow-xs block bg-gray-900"
+                  className="group relative h-64 w-full rounded-xl overflow-hidden border border-gray-200 shadow-xs block bg-white"
                 >
-                  {/* Category Image as Background */}
+                  {/* Category Image: Full height matching desktop so image is clearly visible and not cropped */}
                   {cat.image_url ? (
                     <Image
                       src={cat.image_url}
                       alt={cat.name}
                       fill
-                      className="object-cover object-center group-hover:scale-105 transition-transform duration-500 ease-out"
+                      className="object-contain p-3 pb-14 group-hover:scale-105 transition-transform duration-500 ease-out"
                     />
                   ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black" />
+                    <div className="absolute inset-0 bg-gray-50" />
                   )}
 
-                  {/* Dark Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-
-                  {/* Bottom Text & Small Circular Arrow */}
-                  <div className="absolute inset-x-0 bottom-0 p-3 flex items-end justify-between gap-2">
+                  {/* Clean text at the bottom */}
+                  <div className="absolute inset-x-0 bottom-0 p-3 flex items-end justify-between gap-2 bg-gradient-to-t from-white via-white/90 to-transparent pt-6">
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-xs sm:text-sm font-extrabold text-white uppercase tracking-wide group-hover:text-[#e51b24] transition-colors line-clamp-1">
+                      <h3 className="text-xs font-extrabold text-black uppercase tracking-wide group-hover:text-[#e51b24] transition-colors line-clamp-1">
                         {cat.name}
                       </h3>
-                      <p className="text-[10px] text-gray-300 mt-0.5 line-clamp-1 leading-snug">
-                        {cat.description}
+                      <p className="text-[10px] text-gray-600 mt-0.5 line-clamp-1 leading-snug">
+                        {cat.description || 'Explore collection'}
                       </p>
                     </div>
 
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-black/90 group-hover:bg-[#e51b24] border border-white/20 flex items-center justify-center text-white transition-colors duration-200 shadow-md">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-black/90 group-hover:bg-[#e51b24] border border-black/10 flex items-center justify-center text-white transition-colors duration-200 shadow-md">
                       <ArrowRight className="w-3.5 h-3.5" />
                     </div>
                   </div>
@@ -174,7 +183,7 @@ export function CategorySection({ categories }: CategorySectionProps) {
             ))}
           </div>
 
-          {/* Pagination Dots Below Carousel (Exactly 2 dots for 4 categories) */}
+          {/* Pagination Dots (Exactly 2 dots for 4 categories) */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-1.5 mt-3 pt-1">
               {Array.from({ length: totalPages }).map((_, i) => (
@@ -194,41 +203,38 @@ export function CategorySection({ categories }: CategorySectionProps) {
           )}
         </div>
 
-        {/* Desktop View: Exactly 4 Cards in One Row (completely unchanged) */}
+        {/* Desktop View: Exactly 4 Cards in One Row */}
         <div className="hidden md:grid md:grid-cols-4 gap-5">
           {displayCategories.map((cat) => (
             <Link
               key={cat.id}
               href={`/categories/${cat.slug}`}
-              className="group relative h-64 lg:h-72 w-full rounded-lg overflow-hidden border border-gray-200/90 shadow-xs hover:shadow-md transition-all duration-300 block bg-gray-900"
+              className="group relative h-64 lg:h-72 w-full rounded-xl overflow-hidden border border-gray-200 shadow-xs hover:shadow-md transition-all duration-300 block bg-white"
             >
-              {/* Category Image as Background */}
+              {/* Category Image filling card */}
               {cat.image_url ? (
                 <Image
                   src={cat.image_url}
                   alt={cat.name}
                   fill
-                  className="object-cover object-center group-hover:scale-105 transition-transform duration-500 ease-out"
+                  className="object-contain p-4 pb-16 group-hover:scale-105 transition-transform duration-500 ease-out"
                 />
               ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black" />
+                <div className="absolute inset-0 bg-gray-50" />
               )}
 
-              {/* Subtle Dark Gradient Overlay at Bottom */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-
-              {/* Bottom Text & Small Circular Black Arrow */}
-              <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 flex items-end justify-between gap-3">
+              {/* Text on top of image */}
+              <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 flex items-end justify-between gap-3 bg-gradient-to-t from-white via-white/90 to-transparent pt-8">
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-base sm:text-lg font-extrabold text-white uppercase tracking-wide group-hover:text-[#e51b24] transition-colors line-clamp-1">
+                  <h3 className="text-base sm:text-lg font-extrabold text-black uppercase tracking-wide group-hover:text-[#e51b24] transition-colors line-clamp-1">
                     {cat.name}
                   </h3>
-                  <p className="text-xs text-gray-300 mt-0.5 line-clamp-1 leading-snug font-normal">
-                    {cat.description}
+                  <p className="text-xs text-gray-600 mt-0.5 line-clamp-1 leading-snug font-normal">
+                    {cat.description || 'Explore collection'}
                   </p>
                 </div>
 
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-black/90 group-hover:bg-[#e51b24] border border-white/20 flex items-center justify-center text-white transition-colors duration-200 shadow-md">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-black/90 group-hover:bg-[#e51b24] border border-black/10 flex items-center justify-center text-white transition-colors duration-200 shadow-md">
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                 </div>
               </div>

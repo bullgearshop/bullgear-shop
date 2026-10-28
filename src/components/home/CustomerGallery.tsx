@@ -1,17 +1,49 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Camera } from 'lucide-react';
 
+interface StoryItem {
+  src: string;
+  alt: string;
+}
+
+const DEFAULT_STORIES: StoryItem[] = [
+  { src: '/images/gallery-1.jpg', alt: 'River Crossing in Mahindra Thar' },
+  { src: '/images/gallery-2.jpg', alt: 'Mountain expedition in Fortuner' },
+  { src: '/images/gallery-3.jpg', alt: 'Desert Dune Bashing with Bull Gear' },
+  { src: '/images/gallery-4.jpg', alt: 'Night trail with LED Light Bars' },
+  { src: '/images/gallery-5.jpg', alt: 'Rock Crawling in Himalayas' },
+  { src: '/images/gallery-6.jpg', alt: 'Expedition Rooftop Camp Setup' },
+];
+
 export function CustomerGallery() {
-  const galleryPhotos = [
-    { src: '/images/gallery-1.jpg', alt: 'River Crossing in Mahindra Thar' },
-    { src: '/images/gallery-2.jpg', alt: 'Mountain expedition in Fortuner' },
-    { src: '/images/gallery-3.jpg', alt: 'Desert Dune Bashing with Bull Gear' },
-    { src: '/images/gallery-4.jpg', alt: 'Night trail with LED Light Bars' },
-    { src: '/images/gallery-5.jpg', alt: 'Rock Crawling in Himalayas' },
-    { src: '/images/gallery-6.jpg', alt: 'Expedition Rooftop Camp Setup' },
-  ];
+  const [galleryPhotos, setGalleryPhotos] = useState<StoryItem[]>(DEFAULT_STORIES);
+
+  useEffect(() => {
+    // Check localStorage first
+    try {
+      const saved = localStorage.getItem('bullgear_community_stories');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setGalleryPhotos(parsed);
+        }
+      }
+    } catch {}
+
+    // Fetch from settings API
+    fetch('/api/settings?key=community_stories')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.value) && data.value.length === 6) {
+          setGalleryPhotos(data.value);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <section className="py-14 sm:py-20 bg-[#f8fafc] border-b border-gray-200">
@@ -21,7 +53,7 @@ export function CustomerGallery() {
           {/* Left Column: Heading and description */}
           <div className="lg:col-span-4 flex flex-col items-start">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#e51b24]/10 border border-[#e51b24]/20 text-[#e51b24] text-[11px] font-bold uppercase tracking-wider mb-4">
-              <Camera className="w-3.5 h-3.5" />
+             
               <span>Community Stories</span>
             </div>
 
@@ -43,7 +75,7 @@ export function CustomerGallery() {
             </Link>
           </div>
 
-          {/* Right Column: 6 Photos Grid (expanded) */}
+          {/* Right Column: 6 Photos Grid */}
           <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-3 gap-3.5">
             {galleryPhotos.map((photo, index) => (
               <div

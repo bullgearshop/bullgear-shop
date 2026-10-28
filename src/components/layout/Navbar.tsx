@@ -122,20 +122,8 @@ export function Navbar({ theme = 'light' }: NavbarProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20 gap-4">
             
-            {/* Left: Mobile hamburger & Logo */}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(true)}
-                className={`lg:hidden p-2 rounded-md ${
-                  isLight ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-300 hover:bg-[#161a23]'
-                }`}
-                aria-label="Open mobile menu"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-
-              {/* Bull Gear Logo */}
+            {/* Left: Brand Logo */}
+            <div className="flex items-center">
               <Logo variant={isLight ? 'black' : 'white'} size="md" />
             </div>
 
@@ -210,28 +198,40 @@ export function Navbar({ theme = 'light' }: NavbarProps) {
                   </span>
                 )}
               </button>
+
+              {/* Mobile 3-line Hamburger Menu Button placed on the RIGHT side */}
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(true)}
+                className={`lg:hidden p-2 rounded-lg transition-colors cursor-pointer ${
+                  isLight ? 'text-gray-800 hover:bg-gray-100' : 'text-gray-200 hover:bg-[#161a23]'
+                }`}
+                aria-label="Open mobile navigation menu"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
             </div>
 
           </div>
         </div>
 
-        {/* Mobile Navigation Drawer */}
+        {/* Mobile Navigation Drawer: Animates in from the RIGHT side */}
         {mobileMenuOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden flex">
+          <div className="fixed inset-0 z-50 lg:hidden flex justify-end">
             {/* Backdrop */}
             <div
-              className="fixed inset-0 bg-black/80 backdrop-blur-xs transition-opacity"
+              className="fixed inset-0 bg-black/80 backdrop-blur-xs transition-opacity duration-300"
               onClick={() => setMobileMenuOpen(false)}
             />
 
-            {/* Drawer Content */}
-            <div className="relative w-4/5 max-w-sm bg-[#0e1117] border-r border-[#222838] h-full flex flex-col p-6 z-10 text-white">
+            {/* Drawer Content sliding in from right */}
+            <div className="relative w-4/5 max-w-sm bg-[#0e1117] border-l border-[#222838] h-full flex flex-col p-6 z-10 text-white animate-in slide-in-from-right duration-300 shadow-2xl">
               <div className="flex items-center justify-between pb-6 border-b border-[#1f2533]">
                 <Logo variant="white" size="sm" />
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-2 text-gray-400 hover:text-white"
+                  className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 cursor-pointer"
                   aria-label="Close menu"
                 >
                   <X className="w-6 h-6" />
@@ -302,9 +302,9 @@ export function Navbar({ theme = 'light' }: NavbarProps) {
         )}
       </header>
 
-      {/* Desktop Center-Top Pop-up Search Modal */}
+      {/* Center-Top Pop-up Search Modal (Mobile & Desktop Responsive) */}
       {desktopSearchOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-20 px-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-6 sm:pt-20 px-2.5 sm:px-4">
           {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
@@ -312,10 +312,10 @@ export function Navbar({ theme = 'light' }: NavbarProps) {
           />
 
           {/* Modal Container */}
-          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-10 flex flex-col">
+          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-10 flex flex-col max-h-[88vh]">
             {/* Search Input Bar */}
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-200 bg-white">
-              <Search className="w-5 h-5 text-[#e51b24] shrink-0" />
+            <div className="flex items-center gap-2.5 sm:gap-3 px-3.5 sm:px-5 py-3 sm:py-4 border-b border-gray-200 bg-white">
+              <Search className="w-4 h-4 sm:w-5 sm:h-5 text-[#e51b24] shrink-0" />
               <input
                 ref={desktopSearchInputRef}
                 type="text"
@@ -326,14 +326,14 @@ export function Navbar({ theme = 'light' }: NavbarProps) {
                     handleSearchSubmit(e);
                   }
                 }}
-                placeholder="Search accessories, snorkels, roof racks, Thar, Jimny..."
-                className="w-full text-sm sm:text-base text-gray-900 placeholder-gray-400 focus:outline-none bg-transparent"
+                placeholder="Search accessories, snorkels, roof racks..."
+                className="w-full text-xs sm:text-base text-gray-900 placeholder-gray-400 focus:outline-none bg-transparent"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+                  className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer shrink-0"
                   aria-label="Clear search"
                 >
                   <X className="w-4 h-4" />
@@ -342,21 +342,21 @@ export function Navbar({ theme = 'light' }: NavbarProps) {
               <button
                 type="button"
                 onClick={() => setDesktopSearchOpen(false)}
-                className="text-[11px] font-bold uppercase tracking-wider text-gray-500 hover:text-gray-900 px-2.5 py-1 rounded bg-gray-100 hover:bg-gray-200 transition shrink-0 cursor-pointer"
+                className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gray-500 hover:text-gray-900 px-2 sm:px-2.5 py-1 rounded bg-gray-100 hover:bg-gray-200 transition shrink-0 cursor-pointer"
               >
                 ESC
               </button>
             </div>
 
             {/* Popular Quick Search Tags */}
-            <div className="px-5 py-2.5 bg-gray-50/80 border-b border-gray-100 flex items-center gap-2 overflow-x-auto scrollbar-none text-xs">
+            <div className="px-3.5 sm:px-5 py-2 sm:py-2.5 bg-gray-50/80 border-b border-gray-100 flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none text-xs">
               <span className="text-[10px] font-bold uppercase text-gray-400 tracking-wider shrink-0">Popular:</span>
               {['Snorkels', 'Roof Racks', 'LED Light Bars', 'Bumpers', 'Thar', 'Jimny'].map((tag) => (
                 <button
                   key={tag}
                   type="button"
                   onClick={() => setSearchQuery(tag)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition shrink-0 border cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-medium whitespace-nowrap transition shrink-0 border cursor-pointer ${
                     searchQuery.toLowerCase() === tag.toLowerCase()
                       ? 'bg-[#e51b24] text-white border-[#e51b24]'
                       : 'bg-white text-gray-700 border-gray-200 hover:border-[#e51b24] hover:text-[#e51b24]'
@@ -368,7 +368,7 @@ export function Navbar({ theme = 'light' }: NavbarProps) {
             </div>
 
             {/* Searched Products Results */}
-            <div className="max-h-[380px] overflow-y-auto divide-y divide-gray-100 p-2">
+            <div className="max-h-[380px] overflow-y-auto divide-y divide-gray-100 p-1.5 sm:p-2">
               <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
                 {searchQuery.trim().length > 0 ? `Searched Products (${filteredSuggestions.length})` : 'Popular Accessories'}
               </div>
@@ -377,9 +377,9 @@ export function Navbar({ theme = 'light' }: NavbarProps) {
                   <div
                     key={prod.id}
                     onClick={() => handleSelectProduct(prod.slug)}
-                    className="p-3 flex items-center gap-4 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors group"
+                    className="p-2.5 sm:p-3 flex items-center gap-2.5 sm:gap-3.5 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors group"
                   >
-                    <div className="relative w-14 h-14 rounded-lg bg-gray-50 border border-gray-200 shrink-0 overflow-hidden">
+                    <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-gray-50 border border-gray-200 shrink-0 overflow-hidden">
                       <Image
                         src={prod.images?.[0]?.image_url || '/images/product-snorkel.jpg'}
                         alt={prod.name}
@@ -388,26 +388,27 @@ export function Navbar({ theme = 'light' }: NavbarProps) {
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        {/* Category Badge - whitespace-nowrap prevents words from wrapping vertically */}
+                        <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 whitespace-nowrap shrink-0">
                           {prod.category_name}
                         </span>
                         {prod.compatibility_models && prod.compatibility_models.length > 0 && (
-                          <span className="text-[10px] text-gray-400 truncate">
+                          <span className="text-[10px] text-gray-400 truncate min-w-0">
                             Fit: {prod.compatibility_models.slice(0, 2).join(', ')}
                           </span>
                         )}
                       </div>
-                      <p className="text-sm font-bold text-gray-900 group-hover:text-[#e51b24] transition truncate mt-1">
+                      <p className="text-xs sm:text-sm font-bold text-gray-900 group-hover:text-[#e51b24] transition truncate mt-0.5 sm:mt-1">
                         {prod.name}
                       </p>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-black text-gray-900">
+                    <div className="text-right shrink-0 pl-1">
+                      <p className="text-xs sm:text-sm font-black text-gray-900 whitespace-nowrap">
                         {formatRupees(prod.sale_price ?? prod.price)}
                       </p>
                       {prod.sale_price && (
-                        <p className="text-[11px] text-gray-400 line-through">
+                        <p className="text-[10px] sm:text-[11px] text-gray-400 line-through whitespace-nowrap">
                           {formatRupees(prod.price)}
                         </p>
                       )}
@@ -423,12 +424,12 @@ export function Navbar({ theme = 'light' }: NavbarProps) {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-5 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+            <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
               <span className="hidden sm:inline">Press <strong>Enter ↵</strong> to search entire catalog</span>
               <button
                 type="button"
                 onClick={() => handleSearchSubmit()}
-                className="font-bold text-[#e51b24] hover:underline cursor-pointer ml-auto flex items-center gap-1"
+                className="font-bold text-[#e51b24] hover:underline cursor-pointer ml-auto flex items-center gap-1 text-[11px] sm:text-xs"
               >
                 <span>View all catalog results</span>
                 <span>→</span>

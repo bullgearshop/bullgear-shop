@@ -10,7 +10,7 @@ import {
   ShoppingBag,
   Image as ImageIcon,
   Sliders,
-  Globe,
+  Video,
   Settings,
   ExternalLink,
   Menu,
@@ -227,13 +227,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: 'Categories', href: '/admin/categories', icon: Layers },
     { label: 'Orders', href: '/admin/orders', icon: ShoppingBag },
     { label: 'Hero Banners', href: '/admin/banners', icon: Sliders },
+    { label: 'Stories & Video', href: '/admin/content', icon: Video },
     { label: 'Media Library', href: '/admin/media', icon: ImageIcon },
-    { label: 'SEO & Sitemap', href: '/admin/seo', icon: Globe },
     { label: 'Store Settings', href: '/admin/settings', icon: Settings },
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-gray-900 flex">
+    <div className="h-screen bg-[#f8fafc] text-gray-900 flex overflow-hidden">
       {/* Mobile Sidebar Backdrop */}
       {sidebarOpen && (
         <div
@@ -242,9 +242,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         />
       )}
 
-      {/* Sidebar in White Theme */}
+      {/* Sidebar in White Theme: Fixed height, never scrolls with right page content */}
       <aside
-        className={`fixed lg:static top-0 bottom-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col transition-transform duration-200 shadow-xs ${
+        className={`fixed lg:sticky top-0 h-screen w-64 bg-white border-r border-gray-200 flex flex-col transition-transform duration-200 shadow-xs z-50 shrink-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
@@ -323,8 +323,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main Content Area: only this side scrolls */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         
         {/* Compact Admin Header */}
         <header className="h-16 bg-white border-b border-gray-200 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-xs">

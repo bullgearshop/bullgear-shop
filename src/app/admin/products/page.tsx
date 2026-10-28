@@ -23,7 +23,7 @@ const MAX_BEST_SELLERS = 6;
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
-  const [categories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -39,8 +39,29 @@ export default function AdminProductsPage() {
   const [formImages, setFormImages] = useState<ProductImage[]>([]);
   const [formDescription, setFormDescription] = useState('');
   const [formCompatibility, setFormCompatibility] = useState('Mahindra Thar (2020+), Toyota Fortuner, Hilux, Jimny');
+  const [formSpecifications, setFormSpecifications] = useState<{ key: string; value: string }[]>([
+    { key: 'Material', value: 'High-Grade UV-Stabilized Polyethylene / Heavy Duty Steel' },
+    { key: 'Finish', value: 'Textured Satin Black' },
+    { key: 'Hardware', value: 'Grade 304 Stainless Steel Bolts & Brackets' },
+    { key: 'Mounting Type', value: 'Direct Bolt-On to OEM Chassis Points' },
+    { key: 'Warranty', value: '1 Year Bull Gear Guarantee' },
+  ]);
+  const [formInstallation, setFormInstallation] = useState('');
+  const [formDelivery, setFormDelivery] = useState('');
   const [formIsBestSeller, setFormIsBestSeller] = useState(false);
   const [formIsFeatured, setFormIsFeatured] = useState(false);
+
+  // Fetch dynamic categories
+  useEffect(() => {
+    fetch('/api/categories')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setCategories(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Load from localStorage if present
   useEffect(() => {
@@ -91,6 +112,20 @@ export default function AdminProductsPage() {
     return matchSearch && matchCategory;
   });
 
+  const handleAddSpecRow = () => {
+    setFormSpecifications((prev) => [...prev, { key: '', value: '' }]);
+  };
+
+  const handleUpdateSpecRow = (index: number, field: 'key' | 'value', val: string) => {
+    setFormSpecifications((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [field]: val } : item))
+    );
+  };
+
+  const handleRemoveSpecRow = (index: number) => {
+    setFormSpecifications((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleOpenAddModal = () => {
     setEditingProduct(null);
     setFormName('');
@@ -100,8 +135,17 @@ export default function AdminProductsPage() {
     setFormCategory(categories[0]?.id || '');
     setFormStock('15');
     setFormImages([]);
-    setFormDescription('Heavy-duty 4x4 accessory manufactured with aerospace-grade materials.');
-    setFormCompatibility('Mahindra Thar, Toyota Fortuner, Hilux, Jimny, Gurkha');
+    setFormDescription('Heavy-duty 4x4 accessory manufactured with aerospace-grade materials engineered for extreme off-road endurance.');
+    setFormCompatibility('Mahindra Thar (2020+), Toyota Fortuner, Hilux, Jimny, Force Gurkha');
+    setFormSpecifications([
+      { key: 'Material', value: 'High-Grade UV-Stabilized Polyethylene / Heavy Duty Steel' },
+      { key: 'Finish', value: 'Textured Satin Black' },
+      { key: 'Hardware', value: 'Grade 304 Stainless Steel Bolts & Brackets' },
+      { key: 'Mounting Type', value: 'Direct Bolt-On to OEM Chassis Points' },
+      { key: 'Warranty', value: '1 Year Bull Gear Guarantee' },
+    ]);
+    setFormInstallation('Direct bolt-on installation using vehicle OEM factory mounting points. Includes comprehensive 1:1 scale cutting/mounting template, all high-tensile brackets, stainless steel hardware, and step-by-step fitment guide.');
+    setFormDelivery('Dispatches within 24–48 hours across India. Packed in heavy reinforced wooden crates to ensure zero transit damage. 7-day hassle-free replacement on any fitment or delivery issues.');
     setFormIsBestSeller(bestSellersCount < MAX_BEST_SELLERS);
     setFormIsFeatured(false);
     setModalOpen(true);
@@ -131,6 +175,23 @@ export default function AdminProductsPage() {
     );
     setFormDescription(p.description || '');
     setFormCompatibility(p.compatibility_models?.join(', ') || '');
+    
+    // Parse specifications
+    const specsEntries = Object.entries(p.specifications || {});
+    if (specsEntries.length > 0) {
+      setFormSpecifications(specsEntries.map(([k, v]) => ({ key: k, value: String(v) })));
+    } else {
+      setFormSpecifications([
+        { key: 'Material', value: 'High-Grade UV-Stabilized Polyethylene / Heavy Duty Steel' },
+        { key: 'Finish', value: 'Textured Satin Black' },
+        { key: 'Hardware', value: 'Grade 304 Stainless Steel Bolts & Brackets' },
+        { key: 'Mounting Type', value: 'Direct Bolt-On to OEM Chassis Points' },
+        { key: 'Warranty', value: '1 Year Bull Gear Guarantee' },
+      ]);
+    }
+
+    setFormInstallation(p.installation_info || 'Direct bolt-on installation using vehicle OEM factory mounting points. Includes comprehensive 1:1 scale cutting/mounting template, all high-tensile brackets, stainless steel hardware, and step-by-step fitment guide.');
+    setFormDelivery(p.delivery_returns_info || 'Dispatches within 24–48 hours across India. Packed in heavy reinforced wooden crates to ensure zero transit damage. 7-day hassle-free replacement on any fitment or delivery issues.');
     setFormIsBestSeller(p.is_best_seller ?? false);
     setFormIsFeatured(p.is_featured ?? false);
     setModalOpen(true);
@@ -142,6 +203,15 @@ export default function AdminProductsPage() {
     const parsedStock = parseInt(formStock, 10) || 0;
     const stockStatus: StockStatus = parsedStock === 0 ? 'out_of_stock' : parsedStock <= 5 ? 'limited_stock' : 'in_stock';
     const models = formCompatibility.split(',').map((s) => s.trim()).filter(Boolean);
+
+    // Convert dynamic specifications rows to object
+    const specsObj: Record<string, string> = {};
+    formSpecifications.forEach(({ key, value }) => {
+      const trimmedKey = key.trim();
+      if (trimmedKey) {
+        specsObj[trimmedKey] = value.trim();
+      }
+    });
 
     // Guard best sellers count
     if (formIsBestSeller && (!editingProduct || !editingProduct.is_best_seller) && bestSellersCount >= MAX_BEST_SELLERS) {
@@ -167,6 +237,9 @@ export default function AdminProductsPage() {
               is_featured: formIsFeatured,
               description: formDescription,
               compatibility_models: models,
+              specifications: specsObj,
+              installation_info: formInstallation,
+              delivery_returns_info: formDelivery,
               images: formImages.length > 0 ? formImages : [
                 {
                   id: `img-${p.id}-1`,
@@ -199,8 +272,10 @@ export default function AdminProductsPage() {
         is_published: true,
         description: formDescription,
         compatibility_models: models,
-        specifications: { 'Material': 'Heavy-duty steel/composite' },
-        features: ['Engineered for extreme off-road durability'],
+        specifications: specsObj,
+        installation_info: formInstallation,
+        delivery_returns_info: formDelivery,
+        features: ['Engineered for extreme off-road durability', 'Precision CNC laser-cut and hand-finished'],
         images: formImages.length > 0 ? formImages : [
           {
             id: `img-${Date.now()}-1`,
@@ -436,7 +511,7 @@ export default function AdminProductsPage() {
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="fixed inset-0" onClick={() => setModalOpen(false)} />
-          <div className="relative w-full max-w-2xl bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-2xl z-10 max-h-[90vh] flex flex-col">
+          <div className="relative w-full max-w-3xl bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-2xl z-10 max-h-[90vh] flex flex-col">
             
             <div className="flex items-center justify-between p-5 border-b border-gray-200 bg-gray-50">
               <h3 className="text-base font-bold text-gray-900 uppercase tracking-wider">
@@ -445,13 +520,13 @@ export default function AdminProductsPage() {
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="p-1.5 text-gray-400 hover:text-gray-900"
+                className="p-1.5 text-gray-400 hover:text-gray-900 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveProduct} className="p-6 overflow-y-auto space-y-4 text-xs">
+            <form onSubmit={handleSaveProduct} className="p-6 overflow-y-auto space-y-5 text-xs">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block font-bold text-gray-700 uppercase mb-1">Product Name *</label>
@@ -488,7 +563,7 @@ export default function AdminProductsPage() {
                   <select
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
-                    className="w-full py-2 px-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:border-[#e51b24]"
+                    className="w-full py-2 px-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:border-[#e51b24] cursor-pointer"
                   >
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -533,7 +608,7 @@ export default function AdminProductsPage() {
                 />
               </div>
 
-              {/* Multi-Image File Upload (Max 6: 1 Main + 5 Gallery) */}
+              {/* Multi-Image File Upload */}
               <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
                 <ProductImagesUpload
                   images={formImages}
@@ -569,34 +644,137 @@ export default function AdminProductsPage() {
                 )}
               </div>
 
-              <div>
-                <label className="block font-bold text-gray-700 uppercase mb-1">
-                  Vehicle Compatibility (comma separated)
-                </label>
-                <input
-                  type="text"
-                  value={formCompatibility}
-                  onChange={(e) => setFormCompatibility(e.target.value)}
-                  placeholder="Mahindra Thar (2020+), Toyota Fortuner, Hilux, Jimny"
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:border-[#e51b24]"
-                />
+              {/* Product Storefront Tabs Content Section */}
+              <div className="pt-2 border-t border-gray-200 space-y-4">
+                <div className="flex items-center gap-2 pb-1">
+                  <span className="h-2 w-2 rounded-full bg-[#e51b24]" />
+                  <h4 className="font-extrabold uppercase tracking-wider text-gray-900 text-xs">
+                    Storefront Product Tabs Content
+                  </h4>
+                </div>
+
+                {/* 1. Description */}
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">
+                    1. Description (Product Overview & Highlights) *
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={formDescription}
+                    onChange={(e) => setFormDescription(e.target.value)}
+                    placeholder="Enter thorough overview and product advantages..."
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:border-[#e51b24]"
+                  />
+                </div>
+
+                {/* 2. Specifications (Key - Value Builder) */}
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block font-bold text-gray-800 uppercase">
+                        2. Specifications (Technical Specs Table)
+                      </label>
+                      <p className="text-[11px] text-gray-500">
+                        Displays in the &quot;Specifications&quot; tab on product page.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddSpecRow}
+                      className="px-3 py-1.5 rounded-lg bg-black text-white hover:bg-gray-800 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-[#e51b24]" />
+                      <span>Add Spec Row</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {formSpecifications.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={item.key}
+                          onChange={(e) => handleUpdateSpecRow(idx, 'key', e.target.value)}
+                          placeholder="Spec Name (e.g. Material)"
+                          className="w-2/5 px-2.5 py-1.5 rounded-lg bg-white border border-gray-300 text-gray-900 font-bold focus:outline-none focus:border-[#e51b24]"
+                        />
+                        <input
+                          type="text"
+                          value={item.value}
+                          onChange={(e) => handleUpdateSpecRow(idx, 'value', e.target.value)}
+                          placeholder="Spec Value (e.g. Heavy Duty Steel)"
+                          className="flex-1 px-2.5 py-1.5 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:border-[#e51b24]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSpecRow(idx)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 transition cursor-pointer"
+                          title="Delete Spec"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    {formSpecifications.length === 0 && (
+                      <p className="text-gray-400 text-center py-2 italic text-[11px]">
+                        No specifications added yet. Click &quot;Add Spec Row&quot; above.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Compatibility */}
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">
+                    3. Compatibility (Vehicle Models, comma separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={formCompatibility}
+                    onChange={(e) => setFormCompatibility(e.target.value)}
+                    placeholder="Mahindra Thar (2020+), Toyota Fortuner, Hilux, Jimny, Force Gurkha"
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:border-[#e51b24]"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Separate vehicles with commas. These become selectable in the customer model dropdown.
+                  </p>
+                </div>
+
+                {/* 4. Installation */}
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">
+                    4. Installation (Fitment Guide & Tools Required)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formInstallation}
+                    onChange={(e) => setFormInstallation(e.target.value)}
+                    placeholder="e.g. Direct bolt-on using factory OEM mounting points. Includes 1:1 scale cutting template..."
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:border-[#e51b24]"
+                  />
+                </div>
+
+                {/* 5. Delivery & Returns */}
+                <div>
+                  <label className="block font-bold text-gray-700 uppercase mb-1">
+                    5. Delivery & Returns Policy
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formDelivery}
+                    onChange={(e) => setFormDelivery(e.target.value)}
+                    placeholder="e.g. Dispatches within 24–48 hours across India in heavy protective wooden crates. 7-day hassle-free replacement..."
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:border-[#e51b24]"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-gray-700 uppercase mb-1">Description</label>
-                <textarea
-                  rows={3}
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:border-[#e51b24]"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-gray-200 flex justify-end gap-3">
+              <div className="pt-4 border-t border-gray-200 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer font-bold"
                 >
                   Cancel
                 </button>
