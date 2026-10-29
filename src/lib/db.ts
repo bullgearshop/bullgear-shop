@@ -497,6 +497,9 @@ export const DEFAULT_BANNERS: Banner[] = [
 
 export const DEFAULT_SETTINGS: SiteSettings = {
   whatsapp_number: process.env.NEXT_PUBLIC_WHATSAPP_BUSINESS_NUMBER || '919876543210',
+  phone_number: '+91 98765 43210',
+  contact_email: 'Bullgearshope@gmail.com',
+  address: 'Bull Gear Automotive Labs, Industrial Corridor, Gurgaon, Haryana 122002, India',
   site_name: 'Bull Gear',
   currency_symbol: '₹',
   free_shipping_threshold: 4999,
@@ -504,11 +507,27 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   intro_video_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
   announcement_bar: {
     enabled: true,
-    text: '🔥 Free Express Shipping Across India on all orders above ₹4,999! Limited stock on Thar 2026 accessories.',
+    text: '🔥 Free Express Shipping Across India on all orders above ₹4,999!',
   },
+  privacy_policy: `Welcome to Bull Gear. Your privacy and trust are our top priorities.
+
+1. Information We Collect
+When you browse our catalog, submit an inquiry, or initiate a WhatsApp order, we collect essential details such as your name, contact phone number, delivery address, and vehicle make/model to ensure proper component compatibility.
+
+2. Order Processing & WhatsApp Fulfillment
+Bull Gear conducts streamlined order confirmation and technical fitment advisory via WhatsApp. Your details are used strictly to coordinate dispatch, generate waybills, and provide direct tracking updates.
+
+3. Payment & Security
+We do not store payment card credentials. Pre-order tokens and invoices are verified directly via secure UPI and registered banking channels.
+
+4. Warranty & Support
+All Bull Gear armor and fabricated gear carry our lifetime structural warranty. For inquiries, warranty claims, or data questions, contact our support team directly.
+
+Official Email: Bullgearshope@gmail.com`,
 };
 
 // In-memory runtime cache for seamless operation and modifications
+let memorySettings: SiteSettings = { ...DEFAULT_SETTINGS };
 let memoryProducts = [...DEFAULT_PRODUCTS];
 let memoryCategories = [...DEFAULT_CATEGORIES];
 const memoryBanners = [...DEFAULT_BANNERS];
@@ -773,17 +792,52 @@ export async function getOrders(): Promise<Order[]> {
           items:order_items (*)
         `)
         .order('created_at', { ascending: false });
-      if (!error && data) return data;
-    } catch {
-      // Fall through
+
+      if (!error && data && data.length > 0) {
+        const dbIds = new Set(data.map((o: any) => o.id));
+        const dbOrderNumbers = new Set(data.map((o: any) => o.order_number));
+        const uncommitted = memoryOrders.filter(
+          (m) => !dbIds.has(m.id) && !dbOrderNumbers.has(m.order_number)
+        );
+        return [...data, ...uncommitted];
+      }
+    } catch (err) {
+      console.error('Error in getOrders from Supabase:', err);
     }
   }
   return memoryOrders;
 }
 
 export async function createOrder(orderData: Omit<Order, 'id' | 'order_number' | 'created_at' | 'updated_at'>): Promise<Order> {
-  const count = memoryOrders.length + 1;
-  const orderNumber = `BG-2026-${String(count).padStart(4, '0')}`;
+  let highestNum = 0;
+  const adminClient = getServiceSupabase() || supabase;
+  if (isSupabaseConfigured && adminClient) {
+    try {
+      const { data: latestOrders } = await adminClient
+        .from('orders')
+        .select('order_number')
+        .order('created_at', { ascending: false })
+        .limit(30);
+      if (latestOrders && latestOrders.length > 0) {
+        for (const o of latestOrders) {
+          const match = o.order_number?.match(/BG-\d{4}-(\d+)/);
+          if (match) {
+            const val = parseInt(match[1], 10);
+            if (val > highestNum) highestNum = val;
+          }
+        }
+      }
+    } catch {}
+  }
+  for (const o of memoryOrders) {
+    const match = o.order_number?.match(/BG-\d{4}-(\d+)/);
+    if (match) {
+      const val = parseInt(match[1], 10);
+      if (val > highestNum) highestNum = val;
+    }
+  }
+  const nextNum = Math.max(highestNum + 1, 1);
+  let orderNumber = `BG-2026-${String(nextNum).padStart(4, '0')}`;
   const now = new Date().toISOString();
 
   const newOrder: Order = {
@@ -794,14 +848,32 @@ export async function createOrder(orderData: Omit<Order, 'id' | 'order_number' |
     updated_at: now,
   };
 
-  if (isSupabaseConfigured) {
-    const adminClient = getServiceSupabase();
-    if (adminClient) {
-      try {
-        const { data: orderRow, error: orderErr } = await adminClient
+  if (isSupabaseConfigured && adminClient) {
+    try {
+      let { data: orderRow, error: orderErr } = await adminClient
+        .from('orders')
+        .insert({
+          order_number: orderNumber,
+          customer_name: orderData.customer_name,
+          phone_number: orderData.phone_number,
+          whatsapp_number: orderData.whatsapp_number || orderData.phone_number,
+          delivery_address: orderData.delivery_address,
+          vehicle_model: orderData.vehicle_model,
+          customer_notes: orderData.customer_notes,
+          total_amount: orderData.total_amount,
+          currency: orderData.currency || 'INR',
+          order_status: orderData.order_status || 'pending',
+          payment_status: orderData.payment_status || 'pending',
+        })
+        .select()
+        .single();
+
+      if (orderErr && (orderErr as any).code === '23505') {
+        const uniqueOrderNumber = `${orderNumber}-${Date.now().toString().slice(-4)}`;
+        const retry = await adminClient
           .from('orders')
           .insert({
-            order_number: orderNumber,
+            order_number: uniqueOrderNumber,
             customer_name: orderData.customer_name,
             phone_number: orderData.phone_number,
             whatsapp_number: orderData.whatsapp_number || orderData.phone_number,
@@ -815,23 +887,28 @@ export async function createOrder(orderData: Omit<Order, 'id' | 'order_number' |
           })
           .select()
           .single();
-
-        if (!orderErr && orderRow && orderData.items) {
-          const itemsToInsert = orderData.items.map((item) => ({
-            order_id: orderRow.id,
-            product_id: item.product_id,
-            product_name: item.product_name,
-            product_sku: item.product_sku,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            subtotal: item.subtotal,
-          }));
-          await adminClient.from('order_items').insert(itemsToInsert);
-          newOrder.id = orderRow.id;
+        orderRow = retry.data;
+        orderErr = retry.error;
+        if (!orderErr && orderRow) {
+          newOrder.order_number = uniqueOrderNumber;
         }
-      } catch (err) {
-        console.error('Supabase order creation fallback:', err);
       }
+
+      if (!orderErr && orderRow && orderData.items) {
+        const itemsToInsert = orderData.items.map((item) => ({
+          order_id: orderRow.id,
+          product_id: item.product_id,
+          product_name: item.product_name,
+          product_sku: item.product_sku || '',
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          subtotal: item.subtotal,
+        }));
+        await adminClient.from('order_items').insert(itemsToInsert);
+        newOrder.id = orderRow.id;
+      }
+    } catch (err) {
+      console.error('Supabase order creation fallback:', err);
     }
   }
 
@@ -932,5 +1009,54 @@ export async function deleteCategory(id: string): Promise<boolean> {
 }
 
 export async function getSettings(): Promise<SiteSettings> {
-  return DEFAULT_SETTINGS;
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('key, value');
+
+      if (!error && data && data.length > 0) {
+        const generalRow = data.find((row: any) => row.key === 'general');
+        const policyRow = data.find((row: any) => row.key === 'privacy_policy');
+
+        const merged: SiteSettings = {
+          ...DEFAULT_SETTINGS,
+          ...(generalRow?.value || {}),
+        };
+        if (policyRow?.value?.content) {
+          merged.privacy_policy = policyRow.value.content;
+        } else if (generalRow?.value?.privacy_policy) {
+          merged.privacy_policy = generalRow.value.privacy_policy;
+        }
+        memorySettings = merged;
+        return merged;
+      }
+    } catch (err) {
+      console.error('Failed to load settings from Supabase:', err);
+    }
+  }
+  return memorySettings;
+}
+
+export async function updateSettings(settings: Partial<SiteSettings>): Promise<SiteSettings> {
+  memorySettings = { ...memorySettings, ...settings };
+  if (isSupabaseConfigured && supabase) {
+    try {
+      await supabase.from('site_settings').upsert({
+        key: 'general',
+        value: memorySettings,
+        updated_at: new Date().toISOString(),
+      });
+      if (settings.privacy_policy) {
+        await supabase.from('site_settings').upsert({
+          key: 'privacy_policy',
+          value: { content: settings.privacy_policy },
+          updated_at: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      console.error('Failed to update settings in Supabase:', err);
+    }
+  }
+  return memorySettings;
 }

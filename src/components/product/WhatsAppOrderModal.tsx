@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { X, MessageSquare, ShieldCheck, CheckCircle2, Loader2, ExternalLink } from 'lucide-react';
 import { Product } from '@/lib/types';
+import { useSettings } from '@/lib/settings-context';
 import { formatRupees, createWhatsAppChatUrl, generateWhatsAppOrderMessage } from '@/lib/whatsapp';
 
 interface WhatsAppOrderModalProps {
@@ -21,6 +22,8 @@ export function WhatsAppOrderModal({
   initialQuantity = 1,
   initialModel = '',
 }: WhatsAppOrderModalProps) {
+  const { settings } = useSettings();
+  const businessNumber = settings.whatsapp_number || '919876543210';
   const [quantity, setQuantity] = useState(initialQuantity);
   const [selectedModel, setSelectedModel] = useState(initialModel || (product.compatibility_models?.[0] || ''));
   const [customerName, setCustomerName] = useState('');
@@ -79,9 +82,12 @@ export function WhatsAppOrderModal({
       }
 
       setOrderComplete(data.order);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('bullgear_orders_updated'));
+      }
 
       // Generate WhatsApp link
-      const businessNumber = process.env.NEXT_PUBLIC_WHATSAPP_BUSINESS_NUMBER || '919876543210';
+      // businessNumber comes from settings hook
       const msg = generateWhatsAppOrderMessage(data.order);
       const waUrl = createWhatsAppChatUrl(businessNumber, msg);
 
@@ -143,7 +149,7 @@ export function WhatsAppOrderModal({
               <div className="pt-2 flex flex-col gap-3">
                 <a
                   href={createWhatsAppChatUrl(
-                    process.env.NEXT_PUBLIC_WHATSAPP_BUSINESS_NUMBER || '919876543210',
+                    businessNumber,
                     generateWhatsAppOrderMessage(orderComplete)
                   )}
                   target="_blank"
@@ -249,7 +255,7 @@ export function WhatsAppOrderModal({
                   required
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="e.g. Vikram Singh Rathore"
+                  placeholder="Your full name"
                   className="w-full px-3.5 py-2.5 rounded-lg bg-[#0c0e14] border border-[#2a3142] text-sm text-white focus:outline-none focus:border-[#e51b24]"
                 />
               </div>
@@ -264,7 +270,7 @@ export function WhatsAppOrderModal({
                   required
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="e.g. 9876543210"
+                  placeholder="10-digit WhatsApp phone number"
                   className="w-full px-3.5 py-2.5 rounded-lg bg-[#0c0e14] border border-[#2a3142] text-sm text-white focus:outline-none focus:border-[#e51b24]"
                 />
               </div>
@@ -293,7 +299,7 @@ export function WhatsAppOrderModal({
                   type="text"
                   value={customerNotes}
                   onChange={(e) => setCustomerNotes(e.target.value)}
-                  placeholder="e.g. Need urgent dispatch before Saturday"
+                  placeholder="Special requests, vehicle model or delivery notes (optional)"
                   className="w-full px-3.5 py-2 rounded-lg bg-[#0c0e14] border border-[#2a3142] text-xs text-white focus:outline-none focus:border-[#e51b24]"
                 />
               </div>
