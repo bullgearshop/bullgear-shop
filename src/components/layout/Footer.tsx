@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Logo } from '../common/Logo';
-import { Compass, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -65,12 +65,12 @@ export function Footer() {
             </h4>
             <ul className="space-y-2.5 text-sm">
               <li>
-                <Link href="/contact" className="hover:text-[#e51b24] transition-colors">
-                  Shipping Info
+                <Link href="/privacy-policy" className="hover:text-[#e51b24] transition-colors">
+                  Shipping Info & Policies
                 </Link>
               </li>
               <li>
-                <Link href="/contact" className="hover:text-[#e51b24] transition-colors">
+                <Link href="/privacy-policy" className="hover:text-[#e51b24] transition-colors">
                   Returns & Exchanges
                 </Link>
               </li>
@@ -87,7 +87,7 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Social & Built for Adventure Badge */}
+          {/* Social */}
           <div className="flex flex-col gap-4">
             <h4 className="text-sm font-bold uppercase tracking-wider text-white">
               Follow Us
@@ -130,20 +130,33 @@ export function Footer() {
                 <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
               </a>
             </div>
-
-            {/* Built for Adventure Emblem */}
-            
           </div>
 
         </div>
 
-        {/* Bottom Bar */}
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-400 gap-4">
+        {/* Bottom Bar with ekodrix attribution & Privacy Policy */}
+        <div className="pt-8 flex flex-col md:flex-row items-center justify-between text-xs text-gray-400 gap-4">
           <p>© 2026 Bull Gear. All rights reserved.</p>
+
+          <div className="flex items-center gap-1.5 text-gray-400">
+            <span>Crafted by</span>
+            <a
+              href="https://www.ekodrix.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-200 hover:text-[#e51b24] font-semibold underline underline-offset-4 transition-colors"
+            >
+              ekodrix
+            </a>
+          </div>
+
           <div className="flex items-center gap-6">
-            <Link href="/contact" className="hover:text-gray-300">Privacy Policy</Link>
-            <Link href="/contact" className="hover:text-gray-300">Terms of Service</Link>
-            <Link href="/contact" className="hover:text-gray-300">Shipping Policy</Link>
+            <Link href="/privacy-policy" className="hover:text-white transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/contact" className="hover:text-white transition-colors">
+              Contact Support
+            </Link>
           </div>
         </div>
       </div>

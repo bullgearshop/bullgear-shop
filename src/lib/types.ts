@@ -120,6 +120,9 @@ export interface Order {
 
 export interface SiteSettings {
   whatsapp_number: string;
+  phone_number?: string;
+  contact_email: string;
+  address?: string;
   site_name: string;
   currency_symbol: string;
   free_shipping_threshold: number;
@@ -130,4 +133,5 @@ export interface SiteSettings {
     text: string;
     link?: string;
   };
+  privacy_policy?: string;
 }

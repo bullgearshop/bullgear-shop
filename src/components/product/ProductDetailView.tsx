@@ -15,7 +15,8 @@ import {
   Share2,
 } from 'lucide-react';
 import { Product } from '@/lib/types';
-import { formatRupees } from '@/lib/whatsapp';
+import { formatRupees, createWhatsAppChatUrl } from '@/lib/whatsapp';
+import { useSettings } from '@/lib/settings-context';
 import { useCart } from '@/lib/cart-context';
 import { WhatsAppOrderModal } from './WhatsAppOrderModal';
 import { Navbar } from '../layout/Navbar';
@@ -28,6 +29,7 @@ interface ProductDetailViewProps {
 }
 
 export function ProductDetailView({ product, relatedProducts = [] }: ProductDetailViewProps) {
+  const { settings } = useSettings();
   // Pure light mode theme
   const isLight = true;
   const [currentProduct, setCurrentProduct] = useState<Product>(product);
@@ -534,7 +536,19 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                           <div className="text-xs leading-relaxed space-y-2 text-gray-700">
                             <p>{installationText}</p>
                             <p className="text-[11px] text-gray-500 font-medium">
-                              Need professional fitment support? WhatsApp our technical team for verified workshops near your city.
+                              Need professional fitment support?{' '}
+                              <a
+                                href={createWhatsAppChatUrl(
+                                  settings.whatsapp_number || '919876543210',
+                                  `Hello Bull Gear Support, I need professional fitment advice for ${product.name}.`
+                                )}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[#25D366] font-bold hover:underline inline-flex items-center gap-1"
+                              >
+                                WhatsApp our technical team
+                              </a>{' '}
+                              for verified workshops near your city.
                             </p>
                           </div>
                         )}
@@ -656,7 +670,19 @@ export function ProductDetailView({ product, relatedProducts = [] }: ProductDeta
                 <div className="max-w-3xl text-sm leading-relaxed space-y-3 text-gray-700">
                   <p>{installationText}</p>
                   <p className="text-xs text-gray-500 font-medium">
-                    Need professional fitment? WhatsApp our technical team to locate a Bull Gear verified fitment workshop near your city.
+                    Need professional fitment?{' '}
+                    <a
+                      href={createWhatsAppChatUrl(
+                        settings.whatsapp_number || '919876543210',
+                        `Hello Bull Gear Support, I need professional fitment advice for ${product.name}.`
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#25D366] font-bold hover:underline inline-flex items-center gap-1"
+                    >
+                      WhatsApp our technical team
+                    </a>{' '}
+                    to locate a Bull Gear verified fitment workshop near your city.
                   </p>
                 </div>
               )}
