@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { X, Trash2, ShoppingBag, MessageSquare, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
+import { useSettings } from '@/lib/settings-context';
 import { formatRupees, createWhatsAppChatUrl, generateWhatsAppOrderMessage } from '@/lib/whatsapp';
 
 export function CartDrawer() {
@@ -17,6 +18,7 @@ export function CartDrawer() {
     isCartOpen,
     setIsCartOpen,
   } = useCart();
+  const { settings } = useSettings();
 
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'details' | 'success'>('cart');
   const [customerName, setCustomerName] = useState('');
@@ -65,9 +67,12 @@ export function CartDrawer() {
       setCompletedOrder(data.order);
       setCheckoutStep('success');
       clearCart();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('bullgear_orders_updated'));
+      }
 
       // Open WhatsApp
-      const businessNumber = process.env.NEXT_PUBLIC_WHATSAPP_BUSINESS_NUMBER || '919876543210';
+      const businessNumber = settings.whatsapp_number || '919876543210';
       const msg = generateWhatsAppOrderMessage(data.order);
       const url = createWhatsAppChatUrl(businessNumber, msg);
       window.open(url, '_blank');
@@ -236,7 +241,7 @@ export function CartDrawer() {
                   required
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="e.g. Vikram Singh"
+                  placeholder="Your full name"
                   className="w-full px-3 py-2 rounded-lg bg-[#0c0e14] border border-[#2a3142] text-xs text-white focus:outline-none focus:border-[#e51b24]"
                 />
               </div>
@@ -250,7 +255,7 @@ export function CartDrawer() {
                   required
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="e.g. 9876543210"
+                  placeholder="10-digit WhatsApp number"
                   className="w-full px-3 py-2 rounded-lg bg-[#0c0e14] border border-[#2a3142] text-xs text-white focus:outline-none focus:border-[#e51b24]"
                 />
               </div>
@@ -263,7 +268,7 @@ export function CartDrawer() {
                   type="text"
                   value={vehicleModel}
                   onChange={(e) => setVehicleModel(e.target.value)}
-                  placeholder="e.g. Mahindra Thar 2024 / Fortuner"
+                  placeholder="Vehicle make and model (optional)"
                   className="w-full px-3 py-2 rounded-lg bg-[#0c0e14] border border-[#2a3142] text-xs text-white focus:outline-none focus:border-[#e51b24]"
                 />
               </div>

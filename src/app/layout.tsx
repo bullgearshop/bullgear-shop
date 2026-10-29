@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { CartProvider } from '@/lib/cart-context';
+import { SettingsProvider } from '@/lib/settings-context';
+import { getSettings } from '@/lib/db';
 import { IntroAnimation } from '@/components/common/IntroAnimation';
 
 export const metadata: Metadata = {
@@ -42,18 +44,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const initialSettings = await getSettings();
+
   return (
     <html lang="en" className="light">
       <body className="min-h-screen bg-white text-gray-900 flex flex-col font-sans antialiased">
         <IntroAnimation />
-        <CartProvider>
-          {children}
-        </CartProvider>
+        <SettingsProvider initialSettings={initialSettings}>
+          <CartProvider>
+            {children}
+          </CartProvider>
+        </SettingsProvider>
       </body>
     </html>
   );
