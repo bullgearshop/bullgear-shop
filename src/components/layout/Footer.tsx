@@ -1,13 +1,18 @@
-import React from 'react';
+'use client';
+
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { Logo } from '../common/Logo';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Plus, Minus } from 'lucide-react';
 
 export function Footer() {
+  const [quickLinksOpen, setQuickLinksOpen] = useState(false);
+  const [customerSupportOpen, setCustomerSupportOpen] = useState(false);
+
   return (
-    <footer className="bg-[#07080b] text-gray-400 border-t border-[#181d27] pt-16 pb-12">
+    <footer className="bg-[#07080b] text-gray-400 border-t border-[#181d27] pt-12 sm:pt-16 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-[#181d27]">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-10 pb-12 border-b border-[#181d27]">
           
           {/* Brand Col */}
           <div className="lg:col-span-2 flex flex-col gap-4">
@@ -24,12 +29,28 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Quick Links */}
-          <div>
-            <h4 className="text-sm font-bold uppercase tracking-wider text-white mb-4">
-              Quick Links
-            </h4>
-            <ul className="space-y-2.5 text-sm">
+          {/* Quick Links with mobile accordion toggle */}
+          <div className="border-t border-[#181d27] md:border-t-0 pt-4 md:pt-0">
+            <button
+              type="button"
+              onClick={() => setQuickLinksOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between text-sm font-bold uppercase tracking-wider text-white mb-0 md:mb-4 cursor-pointer md:cursor-default"
+              aria-expanded={quickLinksOpen}
+            >
+              <span>Quick Links</span>
+              <span className="md:hidden p-1 text-gray-400 hover:text-white transition-colors">
+                {quickLinksOpen ? (
+                  <Minus className="w-4 h-4 text-[#e51b24]" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+              </span>
+            </button>
+            <ul
+              className={`${
+                quickLinksOpen ? 'block' : 'hidden'
+              } md:block space-y-2.5 text-sm mt-3 md:mt-0 pt-1 md:pt-0`}
+            >
               <li>
                 <Link href="/" className="hover:text-[#e51b24] transition-colors">
                   Home
@@ -58,12 +79,28 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Customer Support */}
-          <div>
-            <h4 className="text-sm font-bold uppercase tracking-wider text-white mb-4">
-              Customer Support
-            </h4>
-            <ul className="space-y-2.5 text-sm">
+          {/* Customer Support with mobile accordion toggle */}
+          <div className="border-t border-[#181d27] md:border-t-0 pt-4 md:pt-0">
+            <button
+              type="button"
+              onClick={() => setCustomerSupportOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between text-sm font-bold uppercase tracking-wider text-white mb-0 md:mb-4 cursor-pointer md:cursor-default"
+              aria-expanded={customerSupportOpen}
+            >
+              <span>Customer Support</span>
+              <span className="md:hidden p-1 text-gray-400 hover:text-white transition-colors">
+                {customerSupportOpen ? (
+                  <Minus className="w-4 h-4 text-[#e51b24]" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+              </span>
+            </button>
+            <ul
+              className={`${
+                customerSupportOpen ? 'block' : 'hidden'
+              } md:block space-y-2.5 text-sm mt-3 md:mt-0 pt-1 md:pt-0`}
+            >
               <li>
                 <Link href="/privacy-policy" className="hover:text-[#e51b24] transition-colors">
                   Shipping Info & Policies
@@ -88,7 +125,7 @@ export function Footer() {
           </div>
 
           {/* Social */}
-          <div className="flex flex-col gap-4">
+          <div className="border-t border-[#181d27] md:border-t-0 pt-4 md:pt-0 flex flex-col gap-4">
             <h4 className="text-sm font-bold uppercase tracking-wider text-white">
               Follow Us
             </h4>
